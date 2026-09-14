@@ -28,8 +28,8 @@ static_assert(__cplusplus >= 202002L, "This header requires C++20 or later");
 #include <ranges>
 #include <type_traits>
 
-#include "common/helper.h"
-#include "common/native_serializable.h"
+#include "archive/native_serializable.h"
+#include "reflection/helper.h"
 
 namespace serialization
 {

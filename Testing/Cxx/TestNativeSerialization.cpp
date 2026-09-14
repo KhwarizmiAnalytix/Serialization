@@ -3,10 +3,10 @@
 #include <string>
 #include <utility>
 
-#include "common/serialization_macros.h"
+#include "core/serialization_impl.h"
+#include "reflection/reflection_macros.h"
 #include "serialization.h"
-#include "serialization_impl.h"
-#include "util/multi_process_stream.h"
+#include "stream/multi_process_stream.h"
 
 namespace client
 {

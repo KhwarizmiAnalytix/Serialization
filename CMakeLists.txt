@@ -14,6 +14,9 @@ include(clang_tidy)
 # Include code coverage instrumentation configuration (SERIALIZATION_ENABLE_COVERAGE)
 include(coverage)
 
+# Include sanitizer configuration (SERIALIZATION_ENABLE_SANITIZER)
+include(sanitize)
+
 # Include spell-checking configuration (SERIALIZATION_ENABLE_SPELL)
 include(spell)
 

@@ -35,12 +35,12 @@ static_assert(__cplusplus >= 202002L, "This header requires C++20 or later");
 #include <utility>
 #include <variant>
 
-#include "common/archiver_wrapper.h"
-#include "common/helper.h"
-#include "common/reflection.h"
-#include "common/serialization_concepts.h"
-#include "common/serialization_type_traits.h"
+#include "archive/archiver_wrapper.h"
+#include "concepts/serialization_concepts.h"
+#include "concepts/serialization_type_traits.h"
 #include "logging/util/exception.h"
+#include "reflection/helper.h"
+#include "reflection/reflection.h"
 #include "util/pointer.h"
 #include "util/registry.h"
 

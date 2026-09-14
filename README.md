@@ -103,7 +103,7 @@ target_link_libraries(your_target PRIVATE Serialization)
 All arithmetic types and strings are directly serializable:
 
 ```cpp
-#include "serialization_impl.h"
+#include "core/serialization_impl.h"
 using namespace serialization;
 
 // Integers
@@ -390,7 +390,7 @@ save(archive, std_arr);
 ### Basic Serialization
 
 ```cpp
-#include "serialization_impl.h"
+#include "core/serialization_impl.h"
 #include <iostream>
 
 int main() {
@@ -419,8 +419,8 @@ int main() {
 ### Binary Serialization
 
 ```cpp
-#include "serialization_impl.h"
-#include "util/multi_process_stream.h"
+#include "core/serialization_impl.h"
+#include "stream/multi_process_stream.h"
 
 int main() {
     using namespace serialization;
@@ -472,7 +472,7 @@ SERIALIZATION_MACRO(ClassName, member1, member2, ...)
 #### Step 1: Define Your Class
 
 ```cpp
-#include "common/serialization_macros.h"
+#include "reflection/reflection_macros.h"
 
 class BankAccount
 {
@@ -525,8 +525,8 @@ private:
 ### Complete Example
 
 ```cpp
-#include "common/serialization_macros.h"
-#include "serialization_impl.h"
+#include "reflection/reflection_macros.h"
+#include "core/serialization_impl.h"
 
 class BankAccount
 {
@@ -657,7 +657,7 @@ The library supports serializing derived classes through base class pointers usi
 #### Step 1: Define Base Class
 
 ```cpp
-#include "common/serialization_macros.h"
+#include "reflection/reflection_macros.h"
 
 class Shape
 {
@@ -765,7 +765,7 @@ SERIALIZATION_REGISTER_FUNCTION(
 #### Step 4: Serialize Through Base Pointer
 
 ```cpp
-#include "serialization_impl.h"
+#include "core/serialization_impl.h"
 
 int main() {
     using namespace serialization;
@@ -871,7 +871,7 @@ assert(dynamic_cast<Circle*>(loaded_shape.get()) != nullptr);
 ### Example 1: Serializing Nested Containers
 
 ```cpp
-#include "serialization_impl.h"
+#include "core/serialization_impl.h"
 #include <iostream>
 
 int main() {
@@ -900,7 +900,7 @@ int main() {
 ### Example 2: Serializing with Variants
 
 ```cpp
-#include "serialization_impl.h"
+#include "core/serialization_impl.h"
 
 using Value = std::variant<int, double, std::string, std::vector<int>>;
 
@@ -932,8 +932,8 @@ int main() {
 ### Example 3: Complete Application Example
 
 ```cpp
-#include "serialization_impl.h"
-#include "common/serialization_macros.h"
+#include "core/serialization_impl.h"
+#include "reflection/reflection_macros.h"
 #include <fstream>
 
 class User
@@ -1012,8 +1012,8 @@ int main() {
 ### Example 4: Binary Serialization for IPC
 
 ```cpp
-#include "serialization_impl.h"
-#include "util/multi_process_stream.h"
+#include "core/serialization_impl.h"
+#include "stream/multi_process_stream.h"
 
 struct Message
 {

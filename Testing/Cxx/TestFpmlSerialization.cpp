@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include "common/serialization_macros.h"
+#include "core/serialization_impl.h"
+#include "reflection/reflection_macros.h"
 #include "serialization.h"
-#include "serialization_impl.h"
 
 namespace test
 {

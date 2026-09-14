@@ -16,7 +16,7 @@ limitations under the License.
 
 #include <string>
 
-#include "common/native_serializable.h"
+#include "archive/native_serializable.h"
 #include "serialization.h"
 
 namespace serialization

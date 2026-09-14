@@ -45,10 +45,6 @@ if(MSVC)
     target_compile_options(${TEST_NAME} PRIVATE /GR)
 else()
     target_compile_options(${TEST_NAME} PRIVATE -frtti)
-    # Ensure we use libc++ for both compilation and linking
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        target_compile_options(${TEST_NAME} PRIVATE -stdlib=libc++)
-    endif()
 endif()
 
 # Set C++ standard and output directory for test executable
@@ -57,6 +53,13 @@ set_target_properties(
                             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
 )
 
-# Discover and register GTest tests with CTest
+# Discover and register GTest tests with CTest. PRE_TEST defers --gtest_list_tests
+# until ctest runs, so Windows can find Serialization.dll next to the test exe.
 include(GoogleTest)
-gtest_discover_tests(${TEST_NAME} WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.18)
+    gtest_discover_tests(
+        ${TEST_NAME} WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>" DISCOVERY_MODE PRE_TEST
+    )
+else()
+    gtest_discover_tests(${TEST_NAME} WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
+endif()

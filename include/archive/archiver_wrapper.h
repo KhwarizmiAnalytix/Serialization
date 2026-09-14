@@ -26,11 +26,11 @@ limitations under the License.
 #include <type_traits>
 #include <variant>
 
-#include "common/native_serializable.h"
-#include "common/serialization_type_traits.h"
+#include "archive/native_serializable.h"
+#include "concepts/serialization_type_traits.h"
 #include "logging/logging.h"
+#include "stream/multi_process_stream.h"
 #include "util/export.h"
-#include "util/multi_process_stream.h"
 #include "util/registry.h"
 
 //=============================================================================

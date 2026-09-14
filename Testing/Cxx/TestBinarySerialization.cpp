@@ -16,9 +16,9 @@
 #include <variant>
 #include <vector>
 
-#include "common/serialization_macros.h"
-#include "serialization_impl.h"
-#include "util/multi_process_stream.h"
+#include "core/serialization_impl.h"
+#include "reflection/reflection_macros.h"
+#include "stream/multi_process_stream.h"
 #include "util/pointer.h"
 
 //=============================================================================

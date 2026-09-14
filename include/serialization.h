@@ -19,10 +19,10 @@ limitations under the License.
 #include <string>
 #include <vector>
 
-#include "common/archiver_wrapper.h"
-#include "serialization_impl.h"
+#include "archive/archiver_wrapper.h"
+#include "core/serialization_impl.h"
+#include "stream/multi_process_stream.h"
 #include "util/export.h"
-#include "util/multi_process_stream.h"
 #include "util/pointer.h"
 #include "util/registry.h"
 

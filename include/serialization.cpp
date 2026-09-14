@@ -5,7 +5,7 @@
 #include <fstream>
 #include <iomanip>
 
-#include "common/archiver_wrapper.h"
+#include "archive/archiver_wrapper.h"
 
 namespace serialization::serialization_impl
 {

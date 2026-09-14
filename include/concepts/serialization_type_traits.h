@@ -24,8 +24,8 @@ limitations under the License.
 #include <utility>      // for forward, pair
 #include <variant>      // for monostate
 
-#include "common/helper.h"
-#include "common/native_serializable.h"
+#include "archive/native_serializable.h"
+#include "reflection/helper.h"
 #include "util/macros.h"
 #include "util/pointer.h"
 

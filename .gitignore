@@ -60,3 +60,4 @@ logs/
 __pycache__/
 *.pyc
 
+.lintbin/

@@ -9,11 +9,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 # Serialization's library sources all live under include/ (mirrors
-# CMakeLists.txt's GLOB_RECURSE over include/*.h and include/*.cpp), with
-# include/Testing/ excluded the same way CMakeLists.txt filters it out of
-# SERIALIZATION_SOURCES.
+# CMakeLists.txt's GLOB_RECURSE over include/*.h and include/*.cpp). Tests
+# live under Testing/ at the repo root and are not scanned here.
 _SOURCE_ROOT = "include"
-_EXCLUDE_SUBDIRS = ["Testing"]
 
 
 @dataclass
@@ -140,12 +138,6 @@ def build_cppcheck_command(
         "-i.vscode",
         "-i./.vscode",
     ]
-    for subdir in _EXCLUDE_SUBDIRS:
-        # cppcheck's -i matches the path it was given as a prefix against
-        # discovered file paths, so exclude both the bare name and the
-        # "<source_root>/<subdir>" form since we scan _SOURCE_ROOT directly.
-        default_excludes.append(f"-i{subdir}")
-        default_excludes.append(f"-i{os.path.join(_SOURCE_ROOT, subdir)}")
     cmd.extend(default_excludes)
 
     if exclude_patterns:

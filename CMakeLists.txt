@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 
 project(Serialization
     VERSION 1.0.0
@@ -64,9 +64,6 @@ file(GLOB_RECURSE SERIALIZATION_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.cpp"
 )
 
-# Exclude Testing directory files from the library sources
-list(FILTER SERIALIZATION_SOURCES EXCLUDE REGEX ".*/Testing/.*")
-
 # Create shared library version
 add_library(Serialization SHARED
     ${SERIALIZATION_SOURCES}
@@ -107,12 +104,32 @@ target_include_directories(Serialization
 
 
 
-# Link nlohmann/json and pugixml to Serialization library
+# Third-party Logging (KhwarizmiAnalytix/Logging) — SERIALIZATION_CHECK/THROW
+# and SERIALIZATION_LOG_* come from logging/util/exception.h.
+set(LOGGING_ENABLE_TESTING OFF CACHE BOOL "Do not build Logging tests" FORCE)
+set(LOGGING_ENABLE_BENCHMARK OFF CACHE BOOL "Do not build Logging benchmarks" FORCE)
+set(LOGGING_ENABLE_GTEST OFF CACHE BOOL "Do not enable Logging GoogleTest" FORCE)
+set(LOGGING_ENABLE_EXAMPLES OFF CACHE BOOL "Do not build Logging examples" FORCE)
+set(LOGGING_ENABLE_CACHE OFF CACHE BOOL "Disable Logging compiler cache" FORCE)
+# Logging's CMake does include(cache) / include(lto) / … from its own Cmake/
+# directory. CMAKE_MODULE_PATH already contains this repo's cmake/, which has
+# identically named modules, so isolate Logging's module path while it
+# configures.
+set(_serialization_saved_module_path "${CMAKE_MODULE_PATH}")
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/Logging/Cmake")
+add_subdirectory(ThirdParty/Logging)
+set(CMAKE_MODULE_PATH "${_serialization_saved_module_path}")
+# Serialization is SHARED; a static Logging archive linked into it must be PIC
+# on ELF (same rationale as pugixml above).
+set_target_properties(Logging PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Link nlohmann/json, pugixml, and Logging to Serialization library
 target_link_libraries(Serialization
     PUBLIC
         nlohmann_json
         pugixml
+        Logging::Logging
 )
 
 # Add the Testing/Cxx subdirectory to build test executables
-add_subdirectory(include/Testing/Cxx)
+add_subdirectory(Testing/Cxx)

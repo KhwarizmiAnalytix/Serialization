@@ -48,10 +48,7 @@ void access::write_json(const std::string& path, const json& root)
 void access::read_xml(const std::string& path, pugi::xml_document& doc)
 {
     pugi::xml_parse_result result = doc.load_file(path.c_str());
-    if (!result)
-    {
-        std::cerr << "XML parsing error: " << result.description() << std::endl;
-    }
+    SERIALIZATION_CHECK(result, "XML parsing error in {}: {}", path, result.description());
 }
 
 void access::write_xml(const std::string& path, const pugi::xml_document& doc)

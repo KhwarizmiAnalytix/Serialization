@@ -217,7 +217,7 @@ TEST_F(XmlSerializationTest, FpmlXmlRoundTrip)
     // Load the original FpML XML file
     pugi::xml_document original_doc;
     serialization::serialization_impl::access::read_xml(
-        "../../include/Testing/Cxx/fpml_example_from_claud.xml", original_doc);
+        "../../Testing/Cxx/fpml_example_from_claud.xml", original_doc);
 
     // Verify the document loaded successfully
     ASSERT_FALSE(original_doc.empty());

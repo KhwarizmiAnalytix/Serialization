@@ -15,6 +15,14 @@ file(GLOB TEST_FILES
 set(TEST_NAME SerializationCxxTests)
 add_executable(${TEST_NAME} ${TEST_FILES})
 
+# Homebrew fmt (pulled in via Logging) adds -isystem /opt/homebrew/include,
+# which can shadow FetchContent GoogleTest with a different gtest install.
+# Keep our gtest headers first.
+target_include_directories(${TEST_NAME}
+    SYSTEM BEFORE PRIVATE
+        "${googletest_SOURCE_DIR}/googletest/include"
+)
+
 # Link against the Serialization library and GTest
 target_link_libraries(${TEST_NAME}
     PRIVATE

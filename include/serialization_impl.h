@@ -41,9 +41,16 @@ static_assert(__cplusplus >= 202002L, "This header requires C++20 or later");
 #include "common/reflection.h"
 #include "common/serialization_concepts.h"
 #include "common/serialization_type_traits.h"
+#include "logging/util/exception.h"
 #include "util/pointer.h"
 #include "util/registry.h"
-#include "util/string_util.h"
+
+//-----------------------------------------------------------------------------
+// Error handling — Logging exception.h (LOGGING_CHECK / LOGGING_THROW)
+//-----------------------------------------------------------------------------
+#define SERIALIZATION_THROW(...) LOGGING_THROW(__VA_ARGS__)
+#define SERIALIZATION_CHECK(condition, ...) LOGGING_CHECK(condition, ##__VA_ARGS__)
+#define SERIALIZATION_CHECK_DEBUG(condition, ...) LOGGING_CHECK_DEBUG(condition, ##__VA_ARGS__)
 
 //-----------------------------------------------------------------------------
 // Enhanced Error Handling with C++20
@@ -57,7 +64,7 @@ namespace serialization::detail
 template <typename T>
 [[nodiscard]] inline const std::string& cached_type_name() noexcept
 {
-    static const std::string name = demangle(typeid(T).name());
+    static const std::string name = logging::demangle(typeid(T).name());
     return name;
 }
 
@@ -78,7 +85,7 @@ template <typename T>
             return it->second;
         }
 
-        auto name         = demangle(type_info.name());
+        auto name         = logging::demangle(type_info.name());
         cache[&type_info] = name;
         return name;
     }
@@ -105,10 +112,8 @@ struct serialization_context
             ++ctx.depth;
             if (ctx.depth > ctx.max_depth) [[unlikely]]
             {
-                throw;  //_error(
-                        //serialization_error::error_code::recursion_limit,
-                        //"Serialization depth {} exceeds maximum {}",
-                        //ctx.depth, ctx.max_depth);
+                SERIALIZATION_THROW(
+                    "Serialization depth {} exceeds maximum {}", ctx.depth, ctx.max_depth);
             }
         }
 
@@ -124,21 +129,6 @@ struct serialization_context
 };
 
 }  // namespace serialization::detail
-
-//-----------------------------------------------------------------------------
-// Macros for error handling
-//-----------------------------------------------------------------------------
-#define SERIALIZATION_THROW(code, ...)
-
-#define SERIALIZATION_CHECK(condition, code, ...)                                     \
-    do                                                                                \
-    {                                                                                 \
-        if (!(condition)) [[unlikely]]                                                \
-        {                                                                             \
-            SERIALIZATION_THROW(                                                      \
-                code, "Check failed: {} - {}", #condition, std::format(__VA_ARGS__)); \
-        }                                                                             \
-    } while (false)
 
 //-----------------------------------------------------------------------------
 namespace serialization
@@ -317,10 +307,7 @@ void load_associative_container(Archiver& archive, C& container)
     if constexpr (MapLike<C>)
     {
         SERIALIZATION_CHECK(
-            size % 2 == 0,
-            detail::serialization_error::error_code::size_mismatch,
-            "Invalid map serialization: odd number of elements ({})",
-            size);
+            size % 2 == 0, "Invalid map serialization: odd number of elements ({})", size);
 
         for (size_t i = 0; i < size / 2; ++i)
         {
@@ -427,10 +414,7 @@ struct serializer_impl
         {
             const auto class_name = archiver_wrapper<Archiver>::pop_class_name(archive);
 
-            SERIALIZATION_CHECK(
-                !class_name.empty(),
-                detail::serialization_error::error_code::missing_field,
-                "Invalid or missing class name");
+            SERIALIZATION_CHECK(!class_name.empty(), "Invalid or missing class name");
 
             if (class_name != EMPTY_NAME)
             {
@@ -545,7 +529,6 @@ struct serializer_impl<Archiver, std::array<Item, Size>>
 
         SERIALIZATION_CHECK(
             archive_size == Size,
-            detail::serialization_error::error_code::size_mismatch,
             "Array size mismatch: expected {} but got {}",
             Size,
             archive_size);
@@ -580,9 +563,7 @@ struct serializer_impl<Archiver, std::variant<Types...>>
         const auto variant_index = variant.index();
 
         SERIALIZATION_CHECK(
-            variant_index != std::variant_npos,
-            detail::serialization_error::error_code::invalid_variant,
-            "Cannot serialize a valueless variant");
+            variant_index != std::variant_npos, "Cannot serialize a valueless variant");
 
         const auto index = static_cast<unsigned char>(variant_index);
 
@@ -603,11 +584,7 @@ struct serializer_impl<Archiver, std::variant<Types...>>
         const auto index = archiver_wrapper<Archiver>::pop_index(archive, INDEX_NAME);
 
         SERIALIZATION_CHECK(
-            index < num_types,
-            detail::serialization_error::error_code::invalid_index,
-            "Variant index {} out of range (max {})",
-            index,
-            num_types - 1);
+            index < num_types, "Variant index {} out of range (max {})", index, num_types - 1);
 
         using variant_type = std::variant<Types...>;
 
@@ -682,10 +659,7 @@ struct serializer_impl<Archiver, T>
 
     static void save(Archiver& archive, const T& object)
     {
-        SERIALIZATION_CHECK(
-            object != nullptr,
-            detail::serialization_error::error_code::null_pointer,
-            "Cannot serialize null unique_ptr");
+        SERIALIZATION_CHECK(object != nullptr, "Cannot serialize null unique_ptr");
 
         serialization::save(archive, *object);
     }
@@ -768,7 +742,6 @@ struct serializer_impl<Archiver, T>
         else
         {
             SERIALIZATION_THROW(
-                detail::serialization_error::error_code::registry_not_found,
                 "Cannot deserialize type '{}': not registered and no reflection available",
                 class_name);
         }
@@ -788,7 +761,6 @@ struct serializer_impl<Archiver, T>
 
         SERIALIZATION_CHECK(
             archive_size == tuple_size,
-            detail::serialization_error::error_code::size_mismatch,
             "Tuple size mismatch: expected {} but got {}",
             tuple_size,
             archive_size);
@@ -848,7 +820,6 @@ struct serializer_impl<Archiver, T>
 
         SERIALIZATION_CHECK(
             archive_size >= 1,
-            detail::serialization_error::error_code::size_mismatch,
             "Invalid optional serialization: expected at least 1 element but got {}",
             archive_size);
 
@@ -860,7 +831,6 @@ struct serializer_impl<Archiver, T>
         {
             SERIALIZATION_CHECK(
                 archive_size >= 2,
-                detail::serialization_error::error_code::size_mismatch,
                 "Invalid optional serialization: has_value=true but only {} elements",
                 archive_size);
 

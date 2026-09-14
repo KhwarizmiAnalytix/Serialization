@@ -33,17 +33,17 @@ namespace serialization
 #define SERIALIZATION_REGISTER_DERIVED_SERIALIZATION(type)                                        \
     static serialization::RegistererJsonSerializationRegistry SERIALIZATION_ANONYMOUS_VARIABLE(   \
         g_JsonSerializationRegistry)(                                                             \
-        serialization::demangle(typeid(type).name()),                                             \
+        logging::demangle(typeid(type).name()),                                                   \
         serialization::JsonSerializationRegistry(),                                               \
         &serialization::register_serializer_impl<serialization::json COMMA type>);                \
     static serialization::RegistererXmlSerializationRegistry SERIALIZATION_ANONYMOUS_VARIABLE(    \
         g_XmlSerializationRegistry)(                                                              \
-        serialization::demangle(typeid(type).name()),                                             \
+        logging::demangle(typeid(type).name()),                                                   \
         serialization::XmlSerializationRegistry(),                                                \
         &serialization::register_serializer_impl<pugi::xml_node COMMA type>);                     \
     static serialization::RegistererBinarySerializationRegistry SERIALIZATION_ANONYMOUS_VARIABLE( \
         g_BinarySerializationRegistry)(                                                           \
-        serialization::demangle(typeid(type).name()),                                             \
+        logging::demangle(typeid(type).name()),                                                   \
         serialization::BinarySerializationRegistry(),                                             \
         &serialization::register_serializer_impl<serialization::multi_process_stream COMMA type>);
 

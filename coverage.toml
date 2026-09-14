@@ -12,7 +12,7 @@ coverage_report_dir = "coverage_report"
 # more tests are added.
 min_coverage = 45.0
 # Serialization builds one flat shared library (libSerialization.*) across
-# include/, include/common/, and include/util/ (excluding include/Testing/)
+# include/, include/common/, and include/util/ (tests live under Testing/)
 # rather than XSigma's per-directory Library/<Module> layout. Without this
 # override, discover_modules() treats every immediate subdirectory of the
 # repo root as its own "module" (it would pick up e.g. "include" itself,

@@ -1,0 +1,3 @@
+[submodule "ThirdParty/Logging"]
+	path = ThirdParty/Logging
+	url = https://github.com/KhwarizmiAnalytix/Logging.git

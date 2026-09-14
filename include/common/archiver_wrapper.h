@@ -18,7 +18,6 @@ limitations under the License.
 #include <concepts>
 #include <cstddef>
 #include <functional>
-#include <iostream>
 #include <nlohmann/json.hpp>
 #include <pugixml.hpp>
 #include <stdexcept>
@@ -28,16 +27,16 @@ limitations under the License.
 #include <variant>
 
 #include "common/serialization_type_traits.h"
+#include "logging/logging.h"
 #include "util/export.h"
 #include "util/multi_process_stream.h"
 #include "util/registry.h"
-#include "util/string_util.h"
 
 //=============================================================================
-// Logging Macros
+// Logging macros — Logging::exception / LOGGING_LOG_*
 //=============================================================================
 
-#define SERIALIZATION_LOG_WARNING(x) std::cerr << "Warning: " << x << std::endl;
+#define SERIALIZATION_LOG_WARNING(...) LOGGING_LOG_WARNING(__VA_ARGS__)
 
 namespace serialization
 {
@@ -109,7 +108,7 @@ template <typename EnumType>
     requires std::is_enum_v<EnumType>
 void to_json(json& archive, const EnumType& e)
 {
-    archive = std::string(enum_to_string(e));
+    archive = logging::enum_to_string(e);
 }
 
 /// @brief Convert JSON representation to enum
@@ -123,7 +122,7 @@ void from_json(const json& archive, EnumType& e)
     if (archive.is_string())
     {
         auto str = archive.get<std::string>();
-        e        = string_to_enum<EnumType>(str);
+        e        = logging::string_to_enum<EnumType>(str);
     }
     else
     {
@@ -383,7 +382,7 @@ struct archiver_wrapper<pugi::xml_node>
         }
         else if constexpr (std::is_enum_v<T>)
         {
-            archive.text().set(std::string(enum_to_string(obj)).c_str());
+            archive.text().set(logging::enum_to_string(obj).c_str());
         }
         else if constexpr (
             std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)
@@ -440,7 +439,7 @@ struct archiver_wrapper<pugi::xml_node>
         else if constexpr (std::is_enum_v<T>)
         {
             auto str = archive.text().as_string();
-            obj      = string_to_enum<T>(str);
+            obj      = logging::string_to_enum<T>(str);
         }
         else if constexpr (
             std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)

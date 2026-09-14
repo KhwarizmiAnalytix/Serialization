@@ -1,0 +1,54 @@
+# Host config for coverage-tool
+# https://github.com/KhwarizmiAnalytix/coverage-tool
+
+[coverage]
+filter = "."
+source_folder = "."
+output_format = "html-and-json"
+coverage_report_dir = "coverage_report"
+# Measured baseline (Clang/LLVM backend, locally verified) is ~62% line /
+# ~66% function coverage across the 58 existing GTest cases. The floor is
+# kept well below that so normal fluctuation doesn't flake CI; raise it as
+# more tests are added.
+min_coverage = 45.0
+# Serialization builds one flat shared library (libSerialization.*) across
+# include/, include/common/, and include/util/ (excluding include/Testing/)
+# rather than XSigma's per-directory Library/<Module> layout. Without this
+# override, discover_modules() treats every immediate subdirectory of the
+# repo root as its own "module" (it would pick up e.g. "include" itself,
+# which has no matching lib) and look for a matching lib<dir>.* +
+# <dir>CxxTests -- which don't exist for anything but "Serialization". The
+# GCC/lcov backend ignores `modules` (whole-build-dir capture) so a GCC-only
+# CI job would stay green regardless; the Clang/LLVM backend (the default
+# here and for local dev) needs the explicit override to find the real
+# library and test binary.
+#
+# Serialization's Testing/Cxx/CMakeLists.txt originally built one executable
+# per *.cpp test file (TestBinarySerialization, TestJsonSerialization, ...).
+# coverage-tool's Clang backend runs exactly one test binary per `modules`
+# entry, so that layout would only ever measure whichever one of those four
+# binaries it happened to match -- undercounting the rest. Testing/Cxx's
+# CMakeLists.txt was consolidated into a single SerializationCxxTests
+# executable (all the same TEST()/TEST_F() cases, same ctest IDs) so this
+# module resolves to one library and one test binary that together cover
+# the whole suite.
+modules = ["Serialization"]
+
+[coverage.exclude]
+patterns = [
+    "*ThirdParty*",
+    "*Testing*",
+    # GoogleTest is fetched via CMake FetchContent (not a ThirdParty/
+    # submodule) and lands under <build_dir>/_deps/googletest-*/. It is
+    # statically linked into SerializationCxxTests, so without this
+    # exclusion its own internal source (gtest.cc, gtest-death-test.cc,
+    # gtest-printers.cc, ...) shows up as barely-covered lines in the
+    # report and drags the percentage down with code that isn't ours.
+    "*_deps*",
+    "/usr/*",
+]
+llvm_ignore_regex = [
+    ".*Testing[/\\\\].*",
+    ".*ThirdParty[/\\\\].*",
+    ".*_deps[/\\\\].*",
+]

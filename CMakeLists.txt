@@ -50,6 +50,13 @@ add_library(pugixml STATIC
 target_include_directories(pugixml PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/pugixml
 )
+# Serialization is always a SHARED library (see below); a static archive linked
+# into a shared object must itself be position-independent on ELF platforms, or
+# the final link fails with "relocation ... can not be used when making a shared
+# object; recompile with -fPIC" (only surfaces on Linux -- Mach-O's relocation
+# model doesn't enforce this the same way, which is why this stayed invisible
+# in local macOS testing).
+set_target_properties(pugixml PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Automatically discover all source files in include/ directory
 file(GLOB_RECURSE SERIALIZATION_SOURCES

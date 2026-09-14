@@ -29,6 +29,7 @@ static_assert(__cplusplus >= 202002L, "This header requires C++20 or later");
 #include <type_traits>
 
 #include "common/helper.h"
+#include "common/native_serializable.h"
 
 namespace serialization
 {
@@ -38,13 +39,14 @@ namespace serialization
 //-----------------------------------------------------------------------------
 
 /**
- * @brief Concept for types that can be directly serialized (arithmetic, enums, strings)
+ * @brief Concept for types that can be directly serialized (arithmetic, enums,
+ * strings, and client native scalars specialized via native_serializable)
  */
 template <typename T>
 concept BaseSerializable =
     (std::is_arithmetic_v<T> && !std::is_pointer_v<T> && !std::is_array_v<T>) ||
     std::same_as<T, const char*> || std::same_as<T, std::string> || std::is_enum_v<T> ||
-    std::same_as<T, std::monostate>;
+    std::same_as<T, std::monostate> || NativeSerializable<T>;
 
 /**
  * @brief Concept for container types with standard container interface

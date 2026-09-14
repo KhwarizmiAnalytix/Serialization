@@ -26,6 +26,7 @@ limitations under the License.
 #include <type_traits>
 #include <variant>
 
+#include "common/native_serializable.h"
 #include "common/serialization_type_traits.h"
 #include "logging/logging.h"
 #include "util/export.h"
@@ -37,13 +38,6 @@ limitations under the License.
 //=============================================================================
 
 #define SERIALIZATION_LOG_WARNING(...) LOGGING_LOG_WARNING(__VA_ARGS__)
-
-namespace serialization
-{
-class key;
-class tenor;
-class datetime;
-}  // namespace serialization
 
 namespace serialization
 {
@@ -158,9 +152,13 @@ struct archiver_wrapper<json>
         requires is_base_serializable<T>::value
     static void push(json& archive, const T& obj)
     {
-        if constexpr (std::is_same_v<T, serialization::datetime>)
+        if constexpr (is_native_serializable_v<T>)
         {
-            archive = static_cast<double>(obj);
+            using codec = native_serializable<std::remove_cv_t<T>>;
+            static_assert(
+                !is_native_serializable_v<typename codec::wire_type>,
+                "native_serializable wire_type must be a library primitive");
+            push(archive, codec::to_wire(obj));
         }
         else if constexpr (std::is_same_v<T, const char*>)
         {
@@ -183,11 +181,6 @@ struct archiver_wrapper<json>
         {
             to_json(archive, obj);
         }
-        else if constexpr (
-            std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)
-        {
-            archive = obj.to_string();
-        }
         else
         {
             archive = obj;
@@ -202,9 +195,12 @@ struct archiver_wrapper<json>
         requires is_base_serializable<T>::value
     static void pop(json& archive, T& obj)
     {
-        if constexpr (std::is_same_v<T, serialization::datetime>)
+        if constexpr (is_native_serializable_v<T>)
         {
-            obj = archive.get<double>();
+            using codec = native_serializable<std::remove_cv_t<T>>;
+            typename codec::wire_type wire{};
+            pop(archive, wire);
+            codec::from_wire(obj, wire);
         }
         else if constexpr (std::is_same_v<T, const char*>)
         {
@@ -221,11 +217,6 @@ struct archiver_wrapper<json>
         else if constexpr (std::is_enum_v<T>)
         {
             from_json(archive, obj);
-        }
-        else if constexpr (
-            std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)
-        {
-            obj = archive.get<std::string>();
         }
         else
         {
@@ -365,9 +356,13 @@ struct archiver_wrapper<pugi::xml_node>
         requires is_base_serializable<T>::value
     static void push(pugi::xml_node& archive, const T& obj)
     {
-        if constexpr (std::is_same_v<T, serialization::datetime>)
+        if constexpr (is_native_serializable_v<T>)
         {
-            archive.text().set(static_cast<double>(obj));
+            using codec = native_serializable<std::remove_cv_t<T>>;
+            static_assert(
+                !is_native_serializable_v<typename codec::wire_type>,
+                "native_serializable wire_type must be a library primitive");
+            push(archive, codec::to_wire(obj));
         }
         else if constexpr (std::is_same_v<T, const char*>)
         {
@@ -383,11 +378,6 @@ struct archiver_wrapper<pugi::xml_node>
         else if constexpr (std::is_enum_v<T>)
         {
             archive.text().set(logging::enum_to_string(obj).c_str());
-        }
-        else if constexpr (
-            std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)
-        {
-            archive.text().set(obj.to_string().c_str());
         }
         else if constexpr (std::is_same_v<T, std::string>)
         {
@@ -422,9 +412,12 @@ struct archiver_wrapper<pugi::xml_node>
         requires is_base_serializable<T>::value
     static void pop(pugi::xml_node& archive, T& obj)
     {
-        if constexpr (std::is_same_v<T, serialization::datetime>)
+        if constexpr (is_native_serializable_v<T>)
         {
-            obj = archive.text().as_double();
+            using codec = native_serializable<std::remove_cv_t<T>>;
+            typename codec::wire_type wire{};
+            pop(archive, wire);
+            codec::from_wire(obj, wire);
         }
         else if constexpr (std::is_same_v<T, const char*>)
         {
@@ -440,11 +433,6 @@ struct archiver_wrapper<pugi::xml_node>
         {
             auto str = archive.text().as_string();
             obj      = logging::string_to_enum<T>(str);
-        }
-        else if constexpr (
-            std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)
-        {
-            obj = archive.text().as_string();
         }
         else if constexpr (std::is_same_v<T, std::string>)
         {
@@ -632,7 +620,15 @@ struct archiver_wrapper<serialization::multi_process_stream>
         requires is_base_serializable<T>::value
     static void push(serialization::multi_process_stream& archive, const T& obj)
     {
-        if constexpr (std::is_same_v<T, std::monostate>)
+        if constexpr (is_native_serializable_v<T>)
+        {
+            using codec = native_serializable<std::remove_cv_t<T>>;
+            static_assert(
+                !is_native_serializable_v<typename codec::wire_type>,
+                "native_serializable wire_type must be a library primitive");
+            push(archive, codec::to_wire(obj));
+        }
+        else if constexpr (std::is_same_v<T, std::monostate>)
         {
             // monostate is an empty type - write a marker byte
             archive << static_cast<unsigned char>(0);
@@ -640,11 +636,6 @@ struct archiver_wrapper<serialization::multi_process_stream>
         else if constexpr (std::is_enum_v<T>)
         {
             archive << static_cast<int>(obj);
-        }
-        else if constexpr (
-            std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)
-        {
-            archive << obj.to_string();
         }
         else
         {
@@ -660,7 +651,14 @@ struct archiver_wrapper<serialization::multi_process_stream>
         requires is_base_serializable<T>::value
     static void pop(serialization::multi_process_stream& archive, T& obj)
     {
-        if constexpr (std::is_same_v<T, std::monostate>)
+        if constexpr (is_native_serializable_v<T>)
+        {
+            using codec = native_serializable<std::remove_cv_t<T>>;
+            typename codec::wire_type wire{};
+            pop(archive, wire);
+            codec::from_wire(obj, wire);
+        }
+        else if constexpr (std::is_same_v<T, std::monostate>)
         {
             // monostate is an empty type - read and discard the marker byte
             unsigned char marker;
@@ -672,13 +670,6 @@ struct archiver_wrapper<serialization::multi_process_stream>
             int i = 0;
             archive >> i;
             obj = static_cast<T>(i);
-        }
-        else if constexpr (
-            std::is_same_v<T, serialization::tenor> || std::is_same_v<T, serialization::key>)
-        {
-            std::string s;
-            archive >> s;
-            obj = s;
         }
         else
         {

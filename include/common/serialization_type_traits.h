@@ -25,14 +25,12 @@ limitations under the License.
 #include <variant>      // for monostate
 
 #include "common/helper.h"
+#include "common/native_serializable.h"
 #include "util/macros.h"
 #include "util/pointer.h"
 
 namespace serialization
 {
-class tenor;
-class datetime;
-class key;
 
 //-----------------------------------------------------------------------------
 template <typename T>
@@ -42,9 +40,7 @@ struct is_base_serializable
         ((std::is_arithmetic<T>::value && !std::is_pointer<T>::value && !std::is_array<T>::value) ||
          std::is_same<T, const char*>::value || std::is_same<T, std::string>::value ||
          std::is_enum<T>::value || std::is_same<T, std::monostate>::value ||
-         std::is_same<T, serialization::key>::value ||
-         std::is_same<T, serialization::datetime>::value ||
-         std::is_same<T, serialization::tenor>::value);
+         is_native_serializable_v<T>);
 };
 
 //-----------------------------------------------------------------------------

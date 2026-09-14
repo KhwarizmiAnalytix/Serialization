@@ -248,12 +248,10 @@ TEST_F(XmlSerializationTest, FpmlXmlRoundTrip)
     auto reloaded_header = reloaded_fpml.child("header");
     EXPECT_STREQ(
         original_header.child("messageId").child_value(),
-        reloaded_header.child("messageId").child_value()
-    );
+        reloaded_header.child("messageId").child_value());
     EXPECT_STREQ(
         original_header.child("sentBy").child_value(),
-        reloaded_header.child("sentBy").child_value()
-    );
+        reloaded_header.child("sentBy").child_value());
 
     // Verify trade information exists
     auto original_trade = fpml_node.child("trade");
@@ -268,13 +266,11 @@ TEST_F(XmlSerializationTest, FpmlXmlRoundTrip)
     auto reloaded_party1 = reloaded_fpml.find_child_by_attribute("party", "id", "party1");
     EXPECT_STREQ(
         original_party1.child("partyName").child_value(),
-        reloaded_party1.child("partyName").child_value()
-    );
+        reloaded_party1.child("partyName").child_value());
 
     auto original_party2 = fpml_node.find_child_by_attribute("party", "id", "party2");
     auto reloaded_party2 = reloaded_fpml.find_child_by_attribute("party", "id", "party2");
     EXPECT_STREQ(
         original_party2.child("partyName").child_value(),
-        reloaded_party2.child("partyName").child_value()
-    );
+        reloaded_party2.child("partyName").child_value());
 }

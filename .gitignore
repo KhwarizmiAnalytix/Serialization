@@ -43,12 +43,18 @@ compile_commands.json
 *.vcxproj.filters
 *.sln
 
+# Local assistant settings
+.claude/settings.local.json
+
 # OS files
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
 *~
+
+# Editor backups
+*.bak
 
 # Test outputs
 Testing/Temporary/

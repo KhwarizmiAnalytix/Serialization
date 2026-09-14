@@ -40,16 +40,16 @@ The library is designed for high performance with features like cached type name
 
 ## Features
 
--  **C++20 Concepts** - Type-safe serialization with compile-time checking
--  **Reflection System** - Automatic serialization of custom classes
--  **Multiple Formats** - JSON and binary serialization
--  **Polymorphism Support** - Serialize derived classes through base pointers
--  **Container Support** - Comprehensive support for STL containers
--  **Smart Pointers** - Full support for std::unique_ptr and std::shared_ptr
--  **Advanced Types** - std::tuple, std::pair, std::variant, std::array
--  **Thread Safety** - Thread-safe registry and cached operations
--  **Error Handling** - Enhanced error messages with std::format and source_location
--  **Performance** - Optimized with compile-time computation and caching
+- - **C++20 Concepts** - Type-safe serialization with compile-time checking
+- - **Reflection System** - Automatic serialization of custom classes
+- - **Multiple Formats** - JSON and binary serialization
+- - **Polymorphism Support** - Serialize derived classes through base pointers
+- - **Container Support** - Comprehensive support for STL containers
+- - **Smart Pointers** - Full support for std::unique_ptr and std::shared_ptr
+- - **Advanced Types** - std::tuple, std::pair, std::variant, std::array
+- - **Thread Safety** - Thread-safe registry and cached operations
+- - **Error Handling** - Enhanced error messages with std::format and source_location
+- - **Performance** - Optimized with compile-time computation and caching
 
 ## Requirements
 
@@ -90,24 +90,10 @@ ctest
 
 ### Integration with Your Project
 
-#### Option 1: Add as subdirectory
-
 Add to your `CMakeLists.txt`:
 ```cmake
 add_subdirectory(path/to/Serialization)
 target_link_libraries(your_target PRIVATE Serialization)
-```
-
-#### Option 2: Install and find package
-
-```bash
-# Install
-cd build
-cmake --install .
-
-# In your CMakeLists.txt
-find_package(QuarismaSerialization REQUIRED)
-target_link_libraries(your_target PRIVATE QuarismaSerialization::Serialization)
 ```
 
 ## Supported Types
@@ -332,7 +318,7 @@ std::vector<int> data{1, 2, 3, 4, 5};
 std::span<int> sp(data);
 // save(archive, sp);  // Error
 
-//  Workaround: serialize the underlying container
+// - Workaround: serialize the underlying container
 save(archive, data);
 ```
 
@@ -347,7 +333,7 @@ save(archive, data);
 std::string_view sv = "temporary";
 // The underlying data may be destroyed after serialization
 
-//  Safe: convert to std::string
+// - Safe: convert to std::string
 std::string str(sv);
 save(archive, str);
 ```
@@ -363,7 +349,7 @@ save(archive, str);
 auto now = std::chrono::system_clock::now();
 // save(archive, now);  // Error
 
-//  Workaround: serialize as count
+// - Workaround: serialize as count
 auto timestamp = now.time_since_epoch().count();
 save(archive, timestamp);
 ```
@@ -379,22 +365,22 @@ save(archive, timestamp);
 int* raw_ptr = new int(42);
 // save(archive, raw_ptr);  // Error
 
-//  Use smart pointers
+// - Use smart pointers
 auto smart_ptr = std::make_unique<int>(42);
 save(archive, smart_ptr);
 ```
 
 ### C-style Arrays
 
-**Status**: � Partially supported
+**Status**: Note: Partially supported
 **Note**: Use `std::array` or `std::vector` instead
 
 ```cpp
-// � Limited support
+// Note: Limited support
 int arr[5] = {1, 2, 3, 4, 5};
 // Not directly serializable
 
-//  Use std::array
+// - Use std::array
 std::array<int, 5> std_arr{1, 2, 3, 4, 5};
 save(archive, std_arr);
 ```

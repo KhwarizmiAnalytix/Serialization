@@ -15,7 +15,6 @@ limitations under the License.
 
 #pragma once
 
-
 static_assert(__cplusplus >= 202002L, "This header requires C++20 or later");
 
 #include <array>
@@ -161,13 +160,15 @@ inline constexpr std::string_view EMPTY_NAME = "null object!";
 // Forward declarations
 //-----------------------------------------------------------------------------
 template <typename Archiver, typename T>
-    requires(BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> ||
-             TupleLike<T> || VariantLike<T> || OptionalLike<T>)
+    requires(
+        BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> || TupleLike<T> ||
+        VariantLike<T> || OptionalLike<T>)
 void save(Archiver& archive, const T& obj);
 
 template <typename Archiver, typename T>
-    requires(BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> ||
-             TupleLike<T> || VariantLike<T> || OptionalLike<T>)
+    requires(
+        BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> || TupleLike<T> ||
+        VariantLike<T> || OptionalLike<T>)
 void load(Archiver& archive, T& obj);
 
 // Overloads for rvalue references (e.g., XML nodes returned by value)
@@ -395,8 +396,8 @@ struct serializer_impl
                     if constexpr (!is_reflection_empty_v<std::decay_t<decltype(property)>>)
                     {
                         const auto& member_ref = obj->*(property.member());
-                        serialization::save(archiver_wrapper<Archiver>::get(archive, name),
-                                            member_ref);
+                        serialization::save(
+                            archiver_wrapper<Archiver>::get(archive, name), member_ref);
                     }
                 });
         }
@@ -597,8 +598,9 @@ struct serializer_impl<Archiver, std::variant<Types...>>
                 {
                     variant = AltType{};
                 }
-                serialization::load(archiver_wrapper<Archiver>::get(archive, VALUE_NAME),
-                                    std::get<AltType>(variant));
+                serialization::load(
+                    archiver_wrapper<Archiver>::get(archive, VALUE_NAME),
+                    std::get<AltType>(variant));
             }
             else
             {
@@ -853,16 +855,18 @@ struct serializer_impl<Archiver, T>
 
 // Lvalue reference overloads (for JSON, Binary, etc.)
 template <typename Archiver, typename T>
-    requires(BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> ||
-             TupleLike<T> || VariantLike<T> || OptionalLike<T>)
+    requires(
+        BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> || TupleLike<T> ||
+        VariantLike<T> || OptionalLike<T>)
 void save(Archiver& archive, const T& obj)
 {
     impl::serializer_impl<Archiver, T>::save(archive, obj);
 }
 
 template <typename Archiver, typename T>
-    requires(BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> ||
-             TupleLike<T> || VariantLike<T> || OptionalLike<T>)
+    requires(
+        BaseSerializable<T> || Container<T> || Reflectable<T> || SmartPointer<T> || TupleLike<T> ||
+        VariantLike<T> || OptionalLike<T>)
 void load(Archiver& archive, T& obj)
 {
     impl::serializer_impl<Archiver, T>::load(archive, obj);

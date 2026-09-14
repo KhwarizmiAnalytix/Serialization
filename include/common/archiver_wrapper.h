@@ -48,7 +48,7 @@ class datetime;
 namespace serialization
 {
 using json = nlohmann::ordered_json;
-using xml = pugi::xml_node;
+using xml  = pugi::xml_node;
 
 //=============================================================================
 // Serialization Function Type Aliases
@@ -341,10 +341,10 @@ struct xml_node_wrapper
     operator pugi::xml_node&() { return node; }
     operator const pugi::xml_node&() const { return node; }
 
-    pugi::xml_node& operator*() { return node; }
+    pugi::xml_node&       operator*() { return node; }
     const pugi::xml_node& operator*() const { return node; }
 
-    pugi::xml_node* operator->() { return &node; }
+    pugi::xml_node*       operator->() { return &node; }
     const pugi::xml_node* operator->() const { return &node; }
 };
 
@@ -587,7 +587,8 @@ public:
     static void resize(pugi::xml_node& archive, size_t size)
     {
         // Store size as attribute for later reference
-        archive.append_attribute(std::string(SIZE_NAME).c_str()).set_value(static_cast<unsigned int>(size));
+        archive.append_attribute(std::string(SIZE_NAME).c_str())
+            .set_value(static_cast<unsigned int>(size));
     }
 
     /// @brief Get the size of an XML container

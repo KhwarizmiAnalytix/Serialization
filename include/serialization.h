@@ -15,7 +15,6 @@ limitations under the License.
 
 #pragma once
 
-
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -150,7 +149,7 @@ public:
     static std::string print_xml(const ptr_const<T>& obj)
     {
         pugi::xml_document doc;
-        auto root = doc.append_child("root");
+        auto               root = doc.append_child("root");
         serialization::save(root, obj);
 
         std::ostringstream oss;

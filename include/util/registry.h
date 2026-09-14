@@ -158,9 +158,9 @@ public:
 
 #define SERIALIZATION_DEFINE_FUNCTION_REGISTRY(RegistryName, Function)                \
     serialization::Registry<std::string, Function>* RegistryName()                    \
-    {                                                                          \
+    {                                                                                 \
         static auto* registry = new serialization::Registry<std::string, Function>(); \
-        return registry;                                                       \
+        return registry;                                                              \
     }
 
 #define SERIALIZATION_REGISTER_FUNCTION(RegistryName, type, Function)                   \
@@ -169,15 +169,15 @@ public:
 
 #define SERIALIZATION_DECLARE_TYPED_REGISTRY(RegistryName, KeyType, ObjectType, PtrType, ...)      \
     serialization::creator::Registry<KeyType, PtrType<ObjectType>, ##__VA_ARGS__>* RegistryName(); \
-    using Registerer##RegistryName =                                                        \
+    using Registerer##RegistryName =                                                               \
         serialization::creator::Registerer<KeyType, PtrType<ObjectType>, ##__VA_ARGS__>;
 
 #define SERIALIZATION_DEFINE_TYPED_REGISTRY(RegistryName, KeyType, ObjectType, PtrType, ...)      \
     serialization::creator::Registry<KeyType, PtrType<ObjectType>, ##__VA_ARGS__>* RegistryName() \
-    {                                                                                      \
-        static auto* registry =                                                            \
+    {                                                                                             \
+        static auto* registry =                                                                   \
             new serialization::creator::Registry<KeyType, PtrType<ObjectType>, ##__VA_ARGS__>();  \
-        return registry;                                                                   \
+        return registry;                                                                          \
     }
 
 // The __VA_ARGS__ below allows one to specify a templated

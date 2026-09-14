@@ -1,0 +1,82 @@
+name: Coverage
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Minimum acceptable line coverage. Measured baseline (Clang/LLVM backend,
+  # locally verified) is ~62%; the floor is kept well below that so normal
+  # fluctuation doesn't flake CI. See coverage.toml for details.
+  COVERAGE_THRESHOLD: 45
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install coverage-tool
+        run: |
+          sudo apt-get update && sudo apt-get install -y lcov
+          pip install "git+https://github.com/KhwarizmiAnalytix/coverage-tool.git"
+
+      - name: Configure
+        env:
+          CC: gcc
+          CXX: g++
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DSERIALIZATION_ENABLE_COVERAGE=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure --timeout 300
+
+      - name: Generate coverage report
+        run: coverage-tool --build=build --min-coverage=${{ env.COVERAGE_THRESHOLD }}
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo "### Coverage report" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f build/coverage_report/coverage_summary.json ]; then
+            cat build/coverage_report/coverage_summary.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No summary produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage_report/
+          retention-days: 30
+
+      - name: Upload to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/coverage_filtered.info
+          fail_ci_if_error: false

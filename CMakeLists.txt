@@ -14,6 +14,12 @@ include(cache)
 # Include clang-tidy static analysis configuration
 include(clang_tidy)
 
+# Include code coverage instrumentation configuration (SERIALIZATION_ENABLE_COVERAGE)
+include(coverage)
+
+# Include spell-checking configuration (SERIALIZATION_ENABLE_SPELL)
+include(spell)
+
 # Enable CTest for testing
 enable_testing()
 
@@ -60,11 +66,21 @@ add_library(Serialization SHARED
 )
 
 # Set output name for shared library and enable automatic symbol export on Windows
+#
+# LIBRARY_OUTPUT_DIRECTORY (governs the macOS/Linux .so/.dylib) is placed
+# under lib/ -- matching the coverage-tool convention (its find_library()
+# hardcodes a search under <build_dir>/lib on macOS/Linux, <build_dir>/bin
+# on Windows; see coverage.toml at the repo root). This is a separate
+# directory from RUNTIME_OUTPUT_DIRECTORY (deliberately left unchanged
+# below, still colocated with the test executable for Windows .dll lookup)
+# -- moving the .so/.dylib is safe at runtime because CMake's default
+# build-tree RPATH points directly at the actual build location of each
+# linked library, wherever that is.
 set_target_properties(Serialization PROPERTIES
     OUTPUT_NAME Serialization
     WINDOWS_EXPORT_ALL_SYMBOLS ON
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>"
 )
 
 # Enable RTTI (required for typeid and dynamic_cast in serialization)

@@ -18,9 +18,11 @@
 
 #include "util/string_util.h"
 
-#include <cstdio>   // for snprintf, vsnprintf
-#include <cstdlib>  // for strtod, strtof, abs, strtol
-#include <cstring>  // for strlen, memcpy
+#include <cstdio>     // for snprintf, vsnprintf
+#include <cstdlib>    // for strtod, strtof, abs, strtol
+#include <cstring>    // for strlen, memcpy
+#include <functional>  // for std::function (demangle()'s unique_ptr deleter)
+#include <memory>      // for std::unique_ptr
 #include <string>   // for char_traits, string, operator<<, allocator, operator==, oper...
 #include <string_view>
 

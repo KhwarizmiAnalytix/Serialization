@@ -3,9 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "core/serialization_impl.h"
-#include "reflection/reflection_macros.h"
-#include "serialization.h"
+#include "TestSupport.h"
 
 namespace test
 {
@@ -684,8 +682,9 @@ TEST_F(FpmlSerializationTest, SimplePartyTest)
 
     // Serialize
     pugi::xml_document save_doc;
-    auto               root_node = save_doc.append_child("Party");
-    serialization::save(root_node, party1);
+    auto writer = test_support::Xml::writer(save_doc);
+    auto reader = test_support::Xml::reader(save_doc);
+    serialization::serializer{}.save(writer, party1);
 
     std::string xml_str;
     {
@@ -697,7 +696,7 @@ TEST_F(FpmlSerializationTest, SimplePartyTest)
 
     // Deserialize
     test::Party party_loaded;
-    serialization::load(root_node, party_loaded);
+    serialization::serializer{}.load(reader, party_loaded);
 
     // Verify
     EXPECT_EQ(party_loaded.id(), "party1");
@@ -711,7 +710,8 @@ TEST_F(FpmlSerializationTest, NestedHeaderTest)
 
     pugi::xml_document msg_doc;
     auto               msg_root = msg_doc.append_child("MessageId");
-    serialization::save(msg_root, msg_id);
+    auto msg_writer = serialization::adapters::xml_writer{msg_root};
+    serialization::serializer{}.save(msg_writer, msg_id);
 
     std::string msg_xml;
     {
@@ -726,8 +726,9 @@ TEST_F(FpmlSerializationTest, NestedHeaderTest)
 
     // Serialize
     pugi::xml_document save_doc;
-    auto               root_node = save_doc.append_child("Header");
-    serialization::save(root_node, header);
+    auto writer = test_support::Xml::writer(save_doc);
+    auto reader = test_support::Xml::reader(save_doc);
+    serialization::serializer{}.save(writer, header);
 
     std::string xml_str;
     {
@@ -739,7 +740,7 @@ TEST_F(FpmlSerializationTest, NestedHeaderTest)
 
     // Deserialize
     test::Header header_loaded;
-    serialization::load(root_node, header_loaded);
+    serialization::serializer{}.load(reader, header_loaded);
 }
 
 TEST_F(FpmlSerializationTest, FpmlSwapCreationAndSerialization)
@@ -851,19 +852,13 @@ TEST_F(FpmlSerializationTest, FpmlSwapCreationAndSerialization)
 
     // Serialize to XML
     pugi::xml_document save_doc;
-    auto               root_node = save_doc.append_child("FpML");
-    serialization::save(root_node, fpml);
-
-    // Write to file
-    serialization::serialization_impl::access::write_xml("test_fpml_swap_output.xml", save_doc);
+    auto               writer = test_support::Xml::writer(save_doc);
+    auto               reader = test_support::Xml::reader(save_doc);
+    serialization::serializer{}.save(writer, fpml);
 
     // Read back and verify
-    pugi::xml_document load_doc;
-    serialization::serialization_impl::access::read_xml("test_fpml_swap_output.xml", load_doc);
-
     test::test_fpml_swap fpml_loaded;
-    auto                 loaded_root = load_doc.child("FpML");
-    serialization::load(loaded_root, fpml_loaded);
+    serialization::serializer{}.load(reader, fpml_loaded);
 
     // Verify key data
     EXPECT_EQ(fpml_loaded.parties().size(), 2);

@@ -11,9 +11,15 @@ coverage_report_dir = "coverage_report"
 # kept well below that so normal fluctuation doesn't flake CI; raise it as
 # more tests are added.
 min_coverage = 45.0
-# Serialization builds one flat shared library (libSerialization.*) across
-# include/ (archive/, concepts/, core/, reflection/, stream/, util/; tests live
-# under Testing/)
+# Serialization's actual logic (include/) is header-only (INTERFACE targets:
+# Core/Json/Xml/Binary), so it has no .cpp of its own and produces no library
+# the Clang/LLVM backend could pair with a test binary. CMakeLists.txt adds
+# one small SHARED "Serialization" target (a version() query,
+# include/version.cpp) purely to give this module a real
+# libSerialization.* under <build>/lib/; SerializationCxxTests itself (built
+# to <build>/bin/) already contains the header-only logic's own coverage
+# mapping, since templates are instantiated directly into it. This mirrors
+# Logging's one-flat-library convention (see ThirdParty/Logging/coverage.toml)
 # rather than XSigma's per-directory Library/<Module> layout. Without this
 # override, discover_modules() treats every immediate subdirectory of the
 # repo root as its own "module" (it would pick up e.g. "include" itself,

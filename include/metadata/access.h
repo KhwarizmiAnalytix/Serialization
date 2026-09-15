@@ -18,7 +18,7 @@ limitations under the License.
 #include <new>      // for operator new
 #include <utility>  // for forward
 
-#include "util/pointer.h"  // for shared_ptr, unique_ptr
+#include <memory>
 
 namespace serialization
 {

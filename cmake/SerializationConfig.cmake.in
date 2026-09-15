@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+include("${CMAKE_CURRENT_LIST_DIR}/SerializationTargets.cmake")
+foreach(_component IN LISTS Serialization_FIND_COMPONENTS)
+    if(TARGET Serialization::${_component})
+        set(Serialization_${_component}_FOUND TRUE)
+    else()
+        set(Serialization_${_component}_FOUND FALSE)
+    endif()
+endforeach()
+check_required_components(Serialization)

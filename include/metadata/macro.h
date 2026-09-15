@@ -16,8 +16,8 @@ limitations under the License.
 
 #include <string>
 
-#include "archive/native_serializable.h"
-#include "serialization.h"
+#include "codecs/native.h"
+#include "metadata/provider.h"
 
 namespace serialization
 {
@@ -367,21 +367,24 @@ namespace serialization
 
 #define SERIALIZATION_MACRO(T, ...)                             \
     MAKE_META_DATA(T, GET_ARG_COUNT(__VA_ARGS__), __VA_ARGS__); \
-    friend struct serialization::access::serializer;
+    friend struct serialization::access::serializer; \
+    friend struct serialization::generated::metadata<T>;
 
 #define SERIALIZATION_MACRO_EMPTY(T)    \
     REFLECTION_META_DATA_IMPL_EMPTY(T); \
-    friend struct serialization::access::serializer;
+    friend struct serialization::access::serializer; \
+    friend struct serialization::generated::metadata<T>;
 
 #define SERIALIZATION_MACRO_TEMPLATE(T, ...)                    \
     MAKE_META_DATA(T, GET_ARG_COUNT(__VA_ARGS__), __VA_ARGS__); \
-    friend struct serialization::access::serializer;
+    friend struct serialization::access::serializer; \
+    friend struct serialization::generated::metadata<T>;
 
 // Helper macro to combine parent and derived properties
 #define REFLECTION_META_DATA_DERIVED_IMPL(DerivedClass, ParentClass, ...)               \
     constexpr static auto properties()                                                  \
     {                                                                                   \
-        return std::tuple_cat(ParentClass::properties(), std::make_tuple(__VA_ARGS__)); \
+        return std::tuple_cat(serialization::access::serializer::tuple<ParentClass>(), std::make_tuple(__VA_ARGS__)); \
     }
 
 // Macro for derived classes that automatically includes parent properties
@@ -390,5 +393,6 @@ namespace serialization
         DerivedClass,                                                                        \
         ParentClass,                                                                         \
         MAKE_T_ARG_LIST(GET_ARG_COUNT(__VA_ARGS__), REFLECTION, DerivedClass, __VA_ARGS__)); \
-    friend struct serialization::access::serializer;
+    friend struct serialization::access::serializer; \
+    friend struct serialization::generated::metadata<DerivedClass>;
 }  // namespace serialization

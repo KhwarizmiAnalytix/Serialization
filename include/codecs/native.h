@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <string>
 #include <type_traits>
+#include <utility>
 
 namespace serialization
 {
@@ -46,6 +47,29 @@ inline constexpr bool is_native_serializable_v = native_serializable<std::remove
 
 template <typename T>
 concept NativeSerializable = is_native_serializable_v<T>;
+
+namespace detail
+{
+// Keep domain-to-wire conversion independent of the archive representation.
+template <NativeSerializable T>
+decltype(auto) native_to_wire(const T& value)
+{
+    using codec = native_serializable<std::remove_cv_t<T>>;
+    static_assert(
+        !is_native_serializable_v<typename codec::wire_type>,
+        "native_serializable wire_type must be a library primitive");
+    return codec::to_wire(value);
+}
+
+template <NativeSerializable T, typename Read>
+void load_native_value(T& value, Read&& read)
+{
+    using codec = native_serializable<std::remove_cv_t<T>>;
+    typename codec::wire_type wire{};
+    std::forward<Read>(read)(wire);
+    codec::from_wire(value, wire);
+}
+}  // namespace detail
 
 }  // namespace serialization
 

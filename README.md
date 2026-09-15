@@ -8,6 +8,11 @@ A high-performance, type-safe serialization library for C++20 featuring compile-
 
 Developed and maintained by [QuarismAnalytix](https://github.com/QuarismAnalytix).
 
+The proposed [extensible serialization design](Docs/extensible_serialization_design.md)
+describes a backend-independent template core, optional archive adapters, and
+shared metadata interfaces for macro reflection and AST generation. It is a
+design and migration plan; the APIs and targets it proposes are not implemented.
+
 ## Table of Contents
 
 - [Overview](#overview)

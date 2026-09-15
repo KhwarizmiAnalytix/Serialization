@@ -54,7 +54,12 @@ set_target_properties(
     PROPERTIES EXPORT_NAME Serialization
                LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-               RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+               # On DLL platforms RUNTIME_OUTPUT_DIRECTORY is where the .dll
+               # itself lands (LIBRARY_OUTPUT_DIRECTORY only matters for
+               # .so/.dylib); it must match SerializationCxxTests's own
+               # runtime dir (Testing/Cxx/CMakeLists.txt) or Windows can't
+               # find Serialization.dll when launching the test binary.
+               RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
                WINDOWS_EXPORT_ALL_SYMBOLS ON
 )
 list(APPEND _serialization_targets Serialization)

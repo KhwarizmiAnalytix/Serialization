@@ -9,6 +9,11 @@ target_link_libraries(
 if(SERIALIZATION_ENABLE_CLANGTIDY)
     quarisma_target_clang_tidy(SerializationCxxTests)
 endif()
+if(MSVC)
+    # The typed-test suite instantiates every case over 3 backends, which
+    # exceeds MSVC's default per-object COFF section limit on Debug builds.
+    target_compile_options(SerializationCxxTests PRIVATE /bigobj)
+endif()
 # coverage-tool's Clang backend looks for the test binary under bin/ (and
 # bin/<Config> on multi-config generators) to pair with libSerialization.*
 # — see coverage.toml.

@@ -178,7 +178,8 @@ private:
     {
         std::size_t count = 0;
         std::apply(
-            [&](const auto&... fields) { ((count += requires { fields.member(); } ? 1 : 0), ...); },
+            [&](const auto&... fields)
+            { ((count += std::remove_cvref_t<decltype(fields)>::has_member ? 1 : 0), ...); },
             Metadata::template properties<T>());
         return count;
     }
@@ -199,7 +200,7 @@ private:
                     {
                         auto field = [&](const auto& f)
                         {
-                            if constexpr (requires { f.member(); })
+                            if constexpr (std::remove_cvref_t<decltype(f)>::has_member)
                             {
                                 const field_key key{f.name(), position++};
                                 at("." + std::string(key.name),
@@ -239,7 +240,7 @@ private:
                     {
                         auto field = [&](const auto& f)
                         {
-                            if constexpr (requires { f.member(); })
+                            if constexpr (std::remove_cvref_t<decltype(f)>::has_member)
                             {
                                 const field_key key{f.name(), position++};
                                 at("." + std::string(key.name),

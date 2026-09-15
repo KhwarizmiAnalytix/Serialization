@@ -38,6 +38,8 @@ public:
     using member_type  = T;
     using pointer_type = T Class::*;
 
+    static constexpr bool has_member = true;
+
     constexpr reflection_impl(
         pointer_type member, std::string_view name, std::string_view description = "") noexcept
         : member_(member), name_(name), description_(description)
@@ -68,6 +70,8 @@ class reflection_empty
 {
 public:
     using class_type = Class;
+
+    static constexpr bool has_member = false;
 
     constexpr reflection_empty(std::string_view name = "") noexcept : name_(name) {}
 

@@ -4,1264 +4,439 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
 
-A high-performance, type-safe serialization library for C++20 featuring compile-time reflection, concepts-based type constraints, and support for JSON, Binary, and XML formats.
+A header-only C++20 serialization core with a template archive parameter: the
+same reflection metadata and the same `save`/`load` calls work against JSON,
+XML, structured binary, or any archive you write yourself.
 
-Developed and maintained by [QuarismAnalytix](https://github.com/QuarismAnalytix).
+Developed and maintained by [KhwarizmiAnalytix](https://github.com/KhwarizmiAnalytix).
 
-The proposed [extensible serialization design](Docs/extensible_serialization_design.md)
-describes a backend-independent template core, optional archive adapters, and
-shared metadata interfaces for macro reflection and AST generation. It is a
-design and migration plan; the APIs and targets it proposes are not implemented.
+The [extensible serialization design](Docs/extensible_serialization_design.md) document
+records the architecture decisions and migration rationale behind this design; the
+core, adapters, and macros it describes are implemented below.
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
 - [Requirements](#requirements)
-- [Installation](#installation)
-- [Supported Types](#supported-types)
-- [Unsupported Types](#unsupported-types)
+- [Building and Installing](#building-and-installing)
 - [Quick Start](#quick-start)
-- [Reflection System](#reflection-system)
+- [Choosing a Backend](#choosing-a-backend)
+- [Making a Type Serializable](#making-a-type-serializable)
+- [Native Scalars](#native-scalars)
+- [Supported and Unsupported Types](#supported-and-unsupported-types)
 - [Polymorphic Serialization](#polymorphic-serialization)
-- [Usage Examples](#usage-examples)
-- [API Reference](#api-reference)
+- [Error Handling](#error-handling)
+- [Limits](#limits)
+- [Extending the Library](#extending-the-library)
+- [Project Layout](#project-layout)
 - [Contributing](#contributing)
 - [License](#license)
-- [Author](#author)
 
 ## Overview
 
-This library provides a modern C++20 approach to serialization with:
-
-- **Compile-time type safety** using C++20 concepts
-- **Zero-overhead abstractions** with constexpr and template metaprogramming
-- **Multiple serialization formats** (JSON via nlohmann::json, binary via multi_process_stream)
-- **Automatic reflection** for custom types using macros
-- **Polymorphic serialization** with type registry
-- **Thread-safe operations** with cached type information
-
-The library is designed for high performance with features like cached type names (10,000x faster than repeated demangling), compile-time type validation, and minimal runtime overhead.
-
-## Features
-
-- - **C++20 Concepts** - Type-safe serialization with compile-time checking
-- - **Reflection System** - Automatic serialization of custom classes
-- - **Multiple Formats** - JSON and binary serialization
-- - **Polymorphism Support** - Serialize derived classes through base pointers
-- - **Container Support** - Comprehensive support for STL containers
-- - **Smart Pointers** - Full support for std::unique_ptr and std::shared_ptr
-- - **Advanced Types** - std::tuple, std::pair, std::variant, std::array
-- - **Thread Safety** - Thread-safe registry and cached operations
-- - **Error Handling** - Enhanced error messages with std::format and source_location
-- - **Performance** - Optimized with compile-time computation and caching
+- **One core, many archives.** `serialization::serializer` traverses your
+  types once; JSON, XML, and binary adapters (or a custom one you write) each
+  implement a small `archive_traits<A>` contract.
+- **Two ways to describe members.** `SERIALIZATION_MACRO` for hand-written
+  classes, or specialize `serialization::generated::metadata<T>` if you
+  generate metadata from an AST tool — both feed the same core.
+- **C++20 concepts, not runtime reflection.** `OutputArchive`/`InputArchive`
+  gate what an archive must implement; unsupported types fail to compile with
+  a `static_assert`, not a runtime surprise.
+- **Path-aware errors.** Every thrown `serialization_error` carries a
+  `error_code` and a location like `$.orders[2].total`.
+- **Built-in guardrails.** Configurable max depth, max element count, and max
+  string length; cyclic shared/raw graphs are detected and rejected.
 
 ## Requirements
 
-- **C++20 or later** (requires concepts, std::format, std::source_location)
-- **Compiler**: GCC 11+, Clang 13+, MSVC 19.29+
-- **CMake**: 3.15 or later
-- **Dependencies**:
-  - nlohmann/json (for JSON serialization)
-  - pugixml (for XML serialization)
-  - Standard library with C++20 support
+- A C++20 compiler — CI builds Clang, GCC, and MSVC on Linux, macOS, and
+  Windows (see `.github/workflows/`).
+- CMake 3.20+.
+- Optional, only if you enable the corresponding adapter (both vendored under
+  `ThirdParty/`, no system install needed):
+  - [nlohmann/json](https://github.com/nlohmann/json) for the JSON adapter.
+  - [pugixml](https://pugixml.org/) for the XML adapter.
 
-## Installation
+## Building and Installing
 
-### Using CMake
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/QuarismAnalytix/Serialization.git
+git clone https://github.com/KhwarizmiAnalytix/Serialization.git
 cd Serialization
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build
 ```
 
-2. Build the library:
-```bash
-mkdir build
-cd build
-cmake ..
-cmake --build .
-```
+Build options (all CMake `option()`s, default shown):
 
-3. Run tests:
-```bash
-ctest
-# Or run individual tests
-./TestJsonSerialization
-./TestBinarySerialization
-./TestXmlSerialization
-```
+| Option | Default | Controls |
+| --- | --- | --- |
+| `SERIALIZATION_BUILD_TESTING` | `ON` for a top-level build | Builds `SerializationCxxTests` (fetches GoogleTest) |
 
-### Integration with Your Project
+### Integrating into your project
 
-Add to your `CMakeLists.txt`:
 ```cmake
 add_subdirectory(path/to/Serialization)
-target_link_libraries(your_target PRIVATE Serialization)
+target_link_libraries(your_target PRIVATE
+    Serialization::Core     # always available: the header-only template core
+    Serialization::Json     # optional: JSON adapter
+    Serialization::Xml      # optional: XML adapter
+    Serialization::Binary   # optional: structured binary adapter
+)
 ```
 
-## Supported Types
-
-### Primitive Types (BaseSerializable)
-
-All arithmetic types and strings are directly serializable:
-
-```cpp
-#include "core/serialization_impl.h"
-using namespace serialization;
-
-// Integers
-int i = 42;
-long long ll = 123456789LL;
-size_t sz = 1024;
-
-// Floating point
-float f = 3.14f;
-double d = 2.71828;
-
-// Characters and strings
-char c = 'A';
-bool b = true;
-std::string str = "Hello, World!";
-const char* cstr = "C-style string";
-
-// Enums
-enum class Color { Red, Green, Blue };
-Color color = Color::Red;
-
-// JSON serialization
-json archive;
-save(archive, i);
-save(archive, str);
-save(archive, color);
-```
-
-### Sequential Containers
-
-Supports all standard sequential containers:
-
-```cpp
-// Vector
-std::vector<int> vec{1, 2, 3, 4, 5};
-save(archive, vec);
-
-// List
-std::list<double> lst{1.1, 2.2, 3.3};
-save(archive, lst);
-
-// Deque
-std::deque<std::string> deq{"one", "two", "three"};
-save(archive, deq);
-```
-
-### Associative Containers
-
-Full support for maps and sets:
-
-```cpp
-// Set
-std::set<int> s{1, 2, 3, 4, 5};
-save(archive, s);
-
-// Unordered set
-std::unordered_set<std::string> us{"apple", "banana", "orange"};
-save(archive, us);
-
-// Map
-std::map<int, std::string> m{{1, "one"}, {2, "two"}, {3, "three"}};
-save(archive, m);
-
-// Unordered map
-std::unordered_map<std::string, int> um{{"one", 1}, {"two", 2}};
-save(archive, um);
-
-// Multimap and multiset also supported
-std::multimap<int, std::string> mm{{1, "a"}, {1, "b"}};
-std::multiset<int> ms{1, 1, 2, 3};
-```
-
-### Fixed-Size Arrays
-
-```cpp
-// std::array
-std::array<int, 5> arr{1, 2, 3, 4, 5};
-save(archive, arr);
-
-// Size is validated during deserialization
-std::array<int, 5> loaded_arr;
-load(archive, loaded_arr);  // OK: same size
-// std::array<int, 6> wrong_size;
-// load(archive, wrong_size);  // Error: size mismatch
-```
-
-### Pairs and Tuples
-
-```cpp
-// std::pair
-std::pair<int, std::string> p{42, "answer"};
-save(archive, p);
-
-// std::tuple
-std::tuple<int, double, std::string> t{1, 3.14, "pi"};
-save(archive, t);
-
-// Nested tuples
-std::tuple<std::pair<int, int>, std::string> nested{{1, 2}, "nested"};
-save(archive, nested);
-```
-
-### Smart Pointers
-
-```cpp
-// std::unique_ptr
-auto uptr = std::make_unique<MyClass>(42);
-save(archive, uptr);
-
-std::unique_ptr<MyClass> loaded_uptr;
-load(archive, loaded_uptr);
-
-// std::shared_ptr
-auto sptr = std::make_shared<MyClass>(42);
-save(archive, sptr);
-
-std::shared_ptr<MyClass> loaded_sptr;
-load(archive, loaded_sptr);
-
-// Const pointers (removes const during deserialization)
-std::shared_ptr<const MyClass> const_ptr = std::make_shared<MyClass>(42);
-save(archive, const_ptr);
-```
-
-### Variants
-
-```cpp
-// std::variant
-std::variant<int, double, std::string> v = "hello";
-save(archive, v);
-
-std::variant<int, double, std::string> loaded_v;
-load(archive, loaded_v);  // loaded_v holds "hello"
-
-// Variants with complex types
-using ComplexVariant = std::variant<
-    int,
-    std::vector<double>,
-    std::map<std::string, int>
->;
-ComplexVariant cv = std::vector<double>{1.1, 2.2, 3.3};
-save(archive, cv);
-```
-
-### std::optional
-
-```cpp
-// std::optional with value
-std::optional<int> opt1 = 42;
-save(archive, opt1);
-
-// std::optional without value (std::nullopt)
-std::optional<int> opt2 = std::nullopt;
-save(archive, opt2);
-
-// Round-trip preserves has_value state
-std::optional<std::string> opt3 = "hello";
-save(archive, opt3);
-
-std::optional<std::string> loaded;
-load(archive, loaded);
-assert(loaded.has_value() && *loaded == "hello");
-
-// Complex types in optional
-std::optional<std::vector<int>> opt4 = std::vector<int>{1, 2, 3};
-save(archive, opt4);
-```
-
-### Custom Classes with Reflection
-
-See [Reflection System](#reflection-system) for detailed explanation.
-
-```cpp
-class Person
-{
-public:
-    Person(std::string name, int age)
-        : name_(std::move(name)), age_(age) {}
-
-private:
-    void initialize() {}  // Called after deserialization
-    Person() = default;   // Required for deserialization
-
-    // Add reflection metadata
-    SERIALIZATION_MACRO( Person, name_, age_);
-
-    std::string name_;
-    int age_;
-
-    friend struct serialization::access::serializer;
-};
-
-// Usage
-Person p{"Alice", 30};
-save(archive, p);
-```
-
-## Unsupported Types
-
-The following types are **NOT currently supported**:
-
-
-### std::span
-
-**Status**: ❌ Not supported
-**Reason**: `std::span` is a non-owning view, serializing it would lose data
-**Workaround**: Convert to owning container or serialize underlying data
-
-```cpp
-// ❌ Not supported
-std::vector<int> data{1, 2, 3, 4, 5};
-std::span<int> sp(data);
-// save(archive, sp);  // Error
-
-// - Workaround: serialize the underlying container
-save(archive, data);
-```
-
-### std::string_view
-
-**Status**: ❌ Not recommended
-**Reason**: Non-owning view, underlying data may be deallocated
-**Workaround**: Convert to `std::string`
-
-```cpp
-// ❌ Dangerous
-std::string_view sv = "temporary";
-// The underlying data may be destroyed after serialization
-
-// - Safe: convert to std::string
-std::string str(sv);
-save(archive, str);
-```
-
-### std::chrono Types
-
-**Status**: ❌ Not supported
-**Reason**: No specializations for time_point, duration, etc.
-**Workaround**: Convert to numeric representation
-
-```cpp
-// ❌ Not supported
-auto now = std::chrono::system_clock::now();
-// save(archive, now);  // Error
-
-// - Workaround: serialize as count
-auto timestamp = now.time_since_epoch().count();
-save(archive, timestamp);
-```
-
-### Raw Pointers
-
-**Status**: ❌ Not supported (by design)
-**Reason**: Ownership semantics are unclear, potential memory safety issues
-**Workaround**: Use smart pointers
-
-```cpp
-// ❌ Not supported
-int* raw_ptr = new int(42);
-// save(archive, raw_ptr);  // Error
-
-// - Use smart pointers
-auto smart_ptr = std::make_unique<int>(42);
-save(archive, smart_ptr);
-```
-
-### C-style Arrays
-
-**Status**: Note: Partially supported
-**Note**: Use `std::array` or `std::vector` instead
-
-```cpp
-// Note: Limited support
-int arr[5] = {1, 2, 3, 4, 5};
-// Not directly serializable
-
-// - Use std::array
-std::array<int, 5> std_arr{1, 2, 3, 4, 5};
-save(archive, std_arr);
-```
+`Serialization::Core` is header-only (`INTERFACE`); link only the adapters you
+actually use. A `SerializationConfig.cmake` is also installed, so
+`find_package(Serialization)` works against an installed copy with the same
+target names.
 
 ## Quick Start
 
-### Basic Serialization
-
 ```cpp
-#include "core/serialization_impl.h"
-#include <iostream>
+#include "serializer.h"
+#include "metadata/macro.h"
+#include "adapters/json.h"
 
-int main() {
-    using namespace serialization;
-
-    // Create data
-    std::vector<int> data{1, 2, 3, 4, 5};
-
-    // Serialize to JSON
-    json archive;
-    save(archive, data);
-
-    std::cout << "JSON: " << archive.dump(2) << std::endl;
-
-    // Deserialize
-    std::vector<int> loaded;
-    load(archive, loaded);
-
-    // Verify
-    assert(data == loaded);
-
-    return 0;
-}
-```
-
-### Binary Serialization
-
-```cpp
-#include "core/serialization_impl.h"
-#include "stream/multi_process_stream.h"
-
-int main() {
-    using namespace serialization;
-
-    // Create data
-    std::map<int, std::string> data{{1, "one"}, {2, "two"}};
-
-    // Serialize to binary
-    multi_process_stream buffer;
-    save(buffer, data);
-
-    // Deserialize
-    std::map<int, std::string> loaded;
-    load(buffer, loaded);
-
-    assert(data == loaded);
-
-    return 0;
-}
-```
-
-## Reflection System
-
-### What is Reflection?
-
-The reflection system allows the library to introspect custom classes at compile-time, automatically generating serialization code for all member variables. This eliminates the need to manually write save/load functions.
-
-### How Reflection Works
-
-1. **Compile-time metadata**: The `SERIALIZATION_MACRO` generates a compile-time tuple of member pointers and names
-2. **Automatic traversal**: During serialization, the library iterates over this metadata
-3. **Type-safe access**: Member variables are accessed through pointer-to-member and serialized recursively
-
-### Using the SERIALIZATION_MACRO
-
-The macro has the following signature:
-
-```cpp
-SERIALIZATION_MACRO(ClassName, member1, member2, ...)
-```
-
-**Parameters**:
-- `export_spec`: Export specification (use `SERIALIZATION_API` or empty)
-- `ClassName`: Name of the class
-- `member1, member2, ...`: List of member variables to serialize
-
-### Step-by-Step: Making a Class Serializable
-
-#### Step 1: Define Your Class
-
-```cpp
-#include "reflection/reflection_macros.h"
-
-class BankAccount
+class Point
 {
 public:
-    // Public constructors and methods
-    BankAccount(std::string owner, double balance)
-        : owner_(std::move(owner)), balance_(balance), id_(next_id_++) {}
+    Point(int x, int y) : x_(x), y_(y) {}
+    int x() const { return x_; }
+    int y() const { return y_; }
 
-    const std::string& owner() const { return owner_; }
-    double balance() const { return balance_; }
-    int id() const { return id_; }
-```
-
-#### Step 2: Add Required Private Members
-
-```cpp
 private:
-    // Required: Default constructor (can be private)
-    BankAccount() : id_(0), balance_(0.0) {}
+    Point() = default;   // required: deserialization constructs, then loads, into this
+    void initialize() {} // required: called once after every load
 
-    // Required: Initialize method (called after deserialization)
-    void initialize() {
-        // Perform any post-deserialization setup
-        // e.g., re-establish invariants, update caches, etc.
-    }
-```
-
-#### Step 3: Add Reflection Macro
-
-```cpp
-    // Add the reflection macro with all members to serialize
-    SERIALIZATION_MACRO( BankAccount, owner_, balance_, id_);
-
-    // Member variables
-    std::string owner_;
-    double balance_;
-    int id_;
-
-    static inline int next_id_ = 1000;
-```
-
-#### Step 4: Grant Friend Access
-
-```cpp
-    // Required: Grant access to serialization system
-    friend struct serialization::access::serializer;
+    SERIALIZATION_MACRO(Point, x_, y_);
+    int x_ = 0;
+    int y_ = 0;
 };
+
+int main()
+{
+    serialization::adapters::json document;                    // nlohmann::ordered_json
+    auto                          writer = serialization::adapters::json_writer{document};
+    serialization::serializer     codec;
+
+    codec.save(writer, Point{3, 4});
+    std::cout << document.dump(2) << "\n";
+
+    auto  reader = serialization::adapters::json_reader{document};
+    Point loaded{0, 0};
+    codec.load(reader, loaded);
+}
 ```
 
-### Complete Example
+Containers, `std::optional`, `std::variant`, `std::pair`/`std::tuple`, and
+smart pointers work the same way with no extra code — see
+[Supported and Unsupported Types](#supported-and-unsupported-types).
+
+## Choosing a Backend
+
+| Backend | Header | Storage type | Notes |
+| --- | --- | --- | --- |
+| JSON | `adapters/json.h` | `serialization::adapters::json` (`nlohmann::ordered_json`) | Human-readable, easy to diff and debug |
+| XML | `adapters/xml.h` | `pugi::xml_document` | Human-readable, useful for interop with XML-based formats |
+| Binary | `adapters/binary.h` | `std::vector<std::byte>` | Compact, fixed little-endian encoding, not human-readable |
+
+Each backend has a matching writer/reader pair; `codec.save`/`codec.load` are
+identical across all three:
 
 ```cpp
-#include "reflection/reflection_macros.h"
-#include "core/serialization_impl.h"
+// JSON
+serialization::adapters::json document;
+auto writer = serialization::adapters::json_writer{document};
+auto reader = serialization::adapters::json_reader{document};
 
+// XML — writer/reader wrap a pugi::xml_node
+pugi::xml_document doc;
+auto writer = serialization::adapters::xml_writer{doc.append_child("value")};
+auto reader = serialization::adapters::xml_reader{doc.child("value")};
+
+// Binary
+std::vector<std::byte> bytes;
+serialization::adapters::binary_writer writer(bytes);
+serialization::adapters::binary_reader reader(bytes);
+```
+
+The binary format is a fixed little-endian encoding with an `SRL1` magic
+header; it is portable across machines of either endianness (values are
+byte-swapped as needed on read) but is not meant to be human-readable or
+edited by hand.
+
+## Making a Type Serializable
+
+Give the class a (possibly private) default constructor, a `void
+initialize()` method, and one macro call — the macro grants the serializer
+the friend access it needs, so you don't add that yourself:
+
+```cpp
 class BankAccount
 {
 public:
     BankAccount(std::string owner, double balance)
-        : owner_(std::move(owner)), balance_(balance), id_(next_id_++) {}
+        : owner_(std::move(owner)), balance_(balance) {}
 
     const std::string& owner() const { return owner_; }
     double balance() const { return balance_; }
-    int id() const { return id_; }
 
 private:
-    BankAccount() : id_(0), balance_(0.0) {}
+    BankAccount() = default;   // required, may be private
+    void initialize() {}       // required; runs once after load() populates the members
 
-    void initialize() {
-        std::cout << "Account " << id_ << " deserialized" << std::endl;
-    }
-
-    SERIALIZATION_MACRO( BankAccount, owner_, balance_, id_);
-
+    SERIALIZATION_MACRO(BankAccount, owner_, balance_);
     std::string owner_;
-    double balance_;
-    int id_;
-
-    static inline int next_id_ = 1000;
-
-    friend struct serialization::access::serializer;
+    double      balance_;
 };
-
-// Usage
-int main() {
-    using namespace serialization;
-
-    BankAccount account("Alice", 1500.50);
-
-    json archive;
-    save(archive, account);
-
-    BankAccount loaded;
-    load(archive, loaded);
-    // Prints: "Account 1000 deserialized"
-
-    assert(loaded.owner() == "Alice");
-    assert(loaded.balance() == 1500.50);
-    assert(loaded.id() == 1000);
-}
 ```
 
-### The initialize() Method
+- **Member order matters**: it's the field order used when writing.
+- **Only listed members are serialized**; anything else (caches, mutexes,
+  transient state) is naturally excluded.
+- **`initialize()` runs after every load**, including nested ones — use it to
+  recompute derived state or validate invariants, not for reconstruction the
+  constructor should own.
 
-The `initialize()` method is called automatically after deserialization completes. Use it to:
-
-- Re-establish class invariants
-- Update derived/cached data
-- Register with external systems
-- Perform validation
+### Classes with no serialized members
 
 ```cpp
-class Employee
+struct Empty
 {
 private:
-    void initialize() {
-        // Recompute full name after deserialization
-        full_name_ = first_name_ + " " + last_name_;
-
-        // Validate data
-        if (salary_ < 0) {
-            throw std::runtime_error("Invalid salary");
-        }
-    }
-
-    SERIALIZATION_MACRO( Employee,
-                       first_name_, last_name_, salary_);
-
-    std::string first_name_;
-    std::string last_name_;
-    double salary_;
-    std::string full_name_;  // Not serialized, recomputed in initialize()
+    void initialize() {}
+    SERIALIZATION_MACRO_EMPTY(Empty);
 };
 ```
 
-### Selective Serialization
+### Derived classes
 
-You can choose which members to serialize:
+`SERIALIZATION_MACRO_DERIVED` folds the base class's own `properties()` in
+automatically — list only the members `Derived` adds:
 
 ```cpp
-class UserSession
+class Base
 {
+public:
+    virtual ~Base() = default;
+    int value() const { return value_; }
+
 private:
-    // Only serialize user_id and login_time
-    SERIALIZATION_MACRO( UserSession, user_id_, login_time_);
+    void initialize() {}
+    SERIALIZATION_MACRO(Base, value_);
+    int value_ = 7;
+};
 
-    int user_id_;
-    std::string login_time_;
+class Derived : public Base
+{
+public:
+    int extra() const { return extra_; }
 
-    // These are NOT serialized (transient data)
-    std::vector<std::string> temp_cache_;
-    mutable std::mutex mutex_;
-
-    friend struct serialization::access::serializer;
+private:
+    void initialize() {}
+    SERIALIZATION_MACRO_DERIVED(Derived, Base, extra_);
+    int extra_ = 11;
 };
 ```
 
-### Best Practices
+This also works for classes with private constructors — the library
+constructs instances itself during load, bypassing normal access control, so
+`Derived` needs no public default constructor either.
 
-1. **Always provide a default constructor** (can be private)
-2. **Use initialize() for post-deserialization setup**, not the constructor
-3. **Order matters**: List members in the macro in the same order as declaration
-4. **Don't serialize transient data**: Only serialize data needed to reconstruct state
-5. **Mark large/temporary members as transient** to reduce serialization overhead
-6. **Use const member accessors** to prevent modification of deserialized state
+## Native Scalars
+
+For a type you don't own (a date, a tenor, a currency code, ...), teach the
+library to treat it as a primitive instead of an object with fields:
+
+```cpp
+#include "codecs/native.h"
+
+SERIALIZATION_NATIVE_CAST(quant::datetime, double)  // via static_cast<double>/datetime(double)
+SERIALIZATION_NATIVE_STRING(quant::tenor)           // via tenor.to_string()/tenor(std::string)
+```
+
+After this, `quant::datetime` and `quant::tenor` serialize as a bare number or
+string wherever they appear — as a top-level value, a container element, or a
+reflected member — with no `SERIALIZATION_MACRO` of their own.
+
+`WireType` in `SERIALIZATION_NATIVE_CAST` must be a library primitive
+(arithmetic, enum, or `std::string`) — not another native-cast type.
+
+## Supported and Unsupported Types
+
+Supported without any extra code:
+
+- Arithmetic types, `bool`, `char`, enums, `std::string`
+- Anything convertible to `std::string_view` when *saving* (`const char*`,
+  `std::string_view`) — copied into a `std::string` on the wire; you cannot
+  *load* into a `string_view` itself, since that would leave a dangling view
+- Sequential and associative containers that model a range with a
+  `value_type` (`std::vector`, `std::list`, `std::deque`, `std::set`,
+  `std::multiset`, `std::unordered_set`, `std::map`, `std::multimap`,
+  `std::unordered_map`, ...)
+- `std::array`, `std::pair`, `std::tuple` (size is checked on load)
+- `std::optional<T>`, `std::variant<T...>` (including `std::monostate`)
+- `std::shared_ptr<T>`, `std::unique_ptr<T>` — null pointers round-trip as
+  absent; polymorphic pointers need [registration](#polymorphic-serialization)
+- Classes with `SERIALIZATION_MACRO`/`_EMPTY`/`_DERIVED`, or a
+  `serialization::generated::metadata<T>` specialization
+- Types with a `native_serializable` specialization (see
+  [Native Scalars](#native-scalars))
+
+Not supported (fails to compile with "No serialization metadata or type_codec
+for type"):
+
+- **Raw pointers** — ownership is ambiguous; use `std::unique_ptr`/`std::shared_ptr`
+- **`std::span`** — a non-owning view; serialize the owning container instead
+- **`std::chrono` time points/durations** — convert to a numeric representation first
+- **C-style arrays** — use `std::array`
 
 ## Polymorphic Serialization
 
-### Overview
-
-The library supports serializing derived classes through base class pointers using a type registry system. This is essential for polymorphic object hierarchies.
-
-### How Polymorphic Serialization Works
-
-1. **Type Registration**: Derived types are registered in a global registry at program startup
-2. **Type Name Storage**: During serialization, the actual type name is stored alongside the data
-3. **Dynamic Dispatch**: During deserialization, the type name is used to create the correct derived type
-4. **Automatic Upcasting**: The created object is safely cast to the base type pointer
-
-### Step-by-Step: Polymorphic Classes
-
-#### Step 1: Define Base Class
+Serializing through a base pointer needs an explicit catalog of concrete
+types and a per-archive-direction registry, bound onto a `context`:
 
 ```cpp
-#include "reflection/reflection_macros.h"
+using Writer = serialization::adapters::json_writer;
+using Reader = serialization::adapters::json_reader;
 
-class Shape
+// One string ID per concrete type; change it and you break compatibility
+// with data written under the old ID, so treat it like a schema.
+serialization::type_catalog<Shape, Circle, Rectangle> catalog{{"circle-v1", "rectangle-v1"}};
+
+serialization::polymorphic_registry<Writer, serialization::macro_metadata, Shape>
+    output_registry(catalog);
+serialization::polymorphic_registry<Reader, serialization::macro_metadata, Shape>
+    input_registry(catalog);
+
+serialization::context<Writer> output;
+output.bind(output_registry);
+serialization::context<Reader> input;
+input.bind(input_registry);
+
+serialization::adapters::json document;
+auto writer = Writer{document};
+std::shared_ptr<Shape> shape = std::make_shared<Circle>(1.0, 2.0, 5.0);
+output.save(writer, shape);
+
+auto reader = Reader{document};
+std::shared_ptr<Shape> loaded;
+input.load(reader, loaded);
+// loaded is a Circle again, safely upcast to shared_ptr<Shape>
+```
+
+Requirements:
+
+- `Shape` must have a virtual destructor (`std::has_virtual_destructor_v`).
+- Build the catalog and registries once (they're `frozen()` after
+  construction) and share the `context` across every `save`/`load` call that
+  needs polymorphism — a plain `serialization::serializer` has no registry
+  and throws `error_code::unknown_type` for an unregistered dynamic type.
+- Both the base and every catalogued derived type need reflection metadata
+  (`SERIALIZATION_MACRO`/`_DERIVED`), so their fields have something to save.
+
+## Error Handling
+
+Every failure throws `serialization::serialization_error` (derives
+`std::runtime_error`):
+
+```cpp
+try
 {
-public:
-    virtual ~Shape() = default;
-    virtual double area() const = 0;
-
-    double x() const { return x_; }
-    double y() const { return y_; }
-
-protected:
-    Shape(double x, double y) : x_(x), y_(y) {}
-    Shape() = default;
-
-    void initialize() {}
-
-    SERIALIZATION_MACRO( Shape, x_, y_);
-
-    double x_ = 0.0;
-    double y_ = 0.0;
-
-    friend struct serialization::access::serializer;
-};
-```
-
-#### Step 2: Define Derived Classes
-
-```cpp
-class Circle : public Shape
+    codec.load(reader, value);
+}
+catch (const serialization::serialization_error& e)
 {
-public:
-    Circle(double x, double y, double radius)
-        : Shape(x, y), radius_(radius) {}
-
-    double area() const override {
-        return 3.14159 * radius_ * radius_;
-    }
-
-    double radius() const { return radius_; }
-
-private:
-    Circle() = default;
-
-    void initialize() {}
-
-    // Include base class members + derived class members
-    SERIALIZATION_MACRO( Circle, x_, y_, radius_);
-
-    double radius_ = 0.0;
-
-    friend struct serialization::access::serializer;
-};
-
-class Rectangle : public Shape
-{
-public:
-    Rectangle(double x, double y, double w, double h)
-        : Shape(x, y), width_(w), height_(h) {}
-
-    double area() const override {
-        return width_ * height_;
-    }
-
-private:
-    Rectangle() = default;
-
-    void initialize() {}
-
-    SERIALIZATION_MACRO( Rectangle, x_, y_, width_, height_);
-
-    double width_ = 0.0;
-    double height_ = 0.0;
-
-    friend struct serialization::access::serializer;
-};
-```
-
-#### Step 3: Register Derived Classes
-
-After defining derived classes, register them with the serialization system:
-
-```cpp
-// Register for both JSON and binary serialization
-SERIALIZATION_REGISTER_DERIVED_SERIALIZATION(Circle);
-SERIALIZATION_REGISTER_DERIVED_SERIALIZATION(Rectangle);
-```
-
-This macro expands to:
-```cpp
-// For JSON
-SERIALIZATION_REGISTER_FUNCTION(
-    JsonSerializationRegistry,
-    Circle,
-    &register_serializer_impl<json, Circle>
-);
-
-// For binary
-SERIALIZATION_REGISTER_FUNCTION(
-    BinarySerializationRegistry,
-    Circle,
-    &register_serializer_impl<multi_process_stream, Circle>
-);
-```
-
-#### Step 4: Serialize Through Base Pointer
-
-```cpp
-#include "core/serialization_impl.h"
-
-int main() {
-    using namespace serialization;
-
-    // Create shapes
-    std::vector<std::shared_ptr<Shape>> shapes;
-    shapes.push_back(std::make_shared<Circle>(1.0, 2.0, 5.0));
-    shapes.push_back(std::make_shared<Rectangle>(3.0, 4.0, 10.0, 20.0));
-
-    // Serialize
-    json archive;
-    save(archive, shapes);
-
-    std::cout << "Serialized:\n" << archive.dump(2) << std::endl;
-
-    // Deserialize - correct types are reconstructed!
-    std::vector<std::shared_ptr<Shape>> loaded_shapes;
-    load(archive, loaded_shapes);
-
-    // Verify polymorphism works
-    for (const auto& shape : loaded_shapes) {
-        std::cout << "Area: " << shape->area() << std::endl;
-    }
-
-    return 0;
+    std::cerr << e.code() << " at " << e.path() << ": " << e.message() << "\n";
+    // e.what() == "<path>: <message>"
 }
 ```
 
-### Type Registry Internals
+`error_code` values:
 
-The registration system uses static initialization:
+| Code | Meaning |
+| --- | --- |
+| `missing_field` | A required field was absent while loading |
+| `invalid_value` | A value couldn't be parsed, or was out of range for the destination type |
+| `size_mismatch` | A fixed-size type, or a depth/element/string limit, didn't match |
+| `unsupported_version` | `record_info<T>::version` didn't match what was on the wire |
+| `unknown_type` | A polymorphic dynamic type has no matching registry entry |
+| `duplicate_type` | Two catalog entries share an ID, or a type was registered twice |
+| `truncated_input` | The binary reader ran out of bytes mid-value |
+| `depth_limit` | `operation_options::max_depth` was exceeded |
+| `cycle` | A shared/raw pointer graph referenced itself during save |
+| `invalid_registry` | Used a registry before freezing it, or mutated it after |
 
-```cpp
-// Global registry (one per serialization format)
-Registry<std::string, SerializationFunction>* JsonSerializationRegistry();
+`path()` builds up as `$`, then `.field_name` for each reflected member and
+`[index]` for each sequence element — e.g. `$.orders[2].total`.
 
-// Registerer class (RAII pattern)
-class Registerer {
-public:
-    Registerer(const std::string& type_name,
-              Registry* registry,
-              SerializationFunction func) {
-        registry->Register(type_name, func);
-    }
-};
+## Limits
 
-// Static instance triggers registration before main()
-static Registerer g_Circle_Registerer(
-    "Circle",
-    JsonSerializationRegistry(),
-    &register_serializer_impl<json, Circle>
-);
-```
-
-### Advanced: Custom Registration
-
-For more control, you can manually register types:
+Every entry point accepts `operation_options`:
 
 ```cpp
-// Manual registration
-void register_my_types() {
-    using namespace serialization;
-
-    auto* json_registry = JsonSerializationRegistry();
-    auto* binary_registry = BinarySerializationRegistry();
-
-    // Register with custom function
-    json_registry->Register(
-        "MyCustomType",
-        [](json& archive, void* obj, bool is_loading) {
-            // Custom serialization logic
-        }
-    );
-}
+serialization::serializer codec(serialization::operation_options{
+    .max_depth        = 64,               // default 256
+    .max_elements     = 10'000,           // default 1'000'000, per sequence
+    .max_string_bytes = 1024 * 1024,      // default 16 MiB
+});
 ```
 
-### Polymorphism with unique_ptr
+These exist to make the serializer safe to point at untrusted input: a
+maliciously deep or huge document throws `depth_limit`/`size_mismatch`
+instead of exhausting memory or the call stack.
 
-```cpp
-// Works with unique_ptr too
-std::unique_ptr<Shape> shape = std::make_unique<Circle>(0, 0, 10);
+## Extending the Library
 
-json archive;
-save(archive, shape);
+**A new archive.** Specialize `serialization::archive_traits<YourType>` with
+the `write_*`/`read_*` members the `OutputArchive`/`InputArchive` concepts
+require (`archive/traits.h`). An archive can implement only one direction —
+see `Testing/Cxx/TestProtocol.cpp`'s `external::Writer` for a minimal
+output-only example used purely to prove the contract.
 
-std::unique_ptr<Shape> loaded_shape;
-load(archive, loaded_shape);
+**A new container-like type.** Specialize `serialization::type_codec<T>`
+(`codecs/type_codec.h`) with `save`/`load` methods that recurse through the
+supplied context (`ctx.save`/`ctx.load`/`ctx.save_element`/...). This is how
+`std::optional`, `std::variant`, and the smart-pointer support in
+`codecs/standard_types.h` are themselves implemented.
 
-// loaded_shape points to a Circle object
-assert(dynamic_cast<Circle*>(loaded_shape.get()) != nullptr);
+**Metadata from an AST tool instead of macros.** Specialize
+`serialization::generated::metadata<T>` with a `properties()` returning the
+same kind of tuple `SERIALIZATION_MACRO` generates, then select it with
+`serialization::basic_serializer<serialization::ast_metadata>` instead of the
+default `serializer` alias (which uses `macro_metadata`). Macro- and
+AST-provided metadata for the same type are wire-compatible.
+
+**A durable type ID and schema version.** Specialize
+`serialization::record_info<T>` (default: empty ID, version `0`, meaning "no
+check") to have mismatches rejected with `unknown_type`/`unsupported_version`
+instead of silently misreading a record.
+
+## Project Layout
+
 ```
-
-### Important Notes
-
-1. **Registration must happen before serialization**: Use static initialization or call registration functions at startup
-2. **Type names must be unique**: The registry uses demangled type names as keys
-3. **Both base and derived must have reflection**: Use `SERIALIZATION_MACRO` on both
-4. **Virtual destructors required**: Base class must have virtual destructor for polymorphism
-5. **Include base members in derived**: Derived class reflection must include base class members
-
-## Usage Examples
-
-### Example 1: Serializing Nested Containers
-
-```cpp
-#include "core/serialization_impl.h"
-#include <iostream>
-
-int main() {
-    using namespace serialization;
-
-    // Complex nested structure
-    std::map<std::string, std::vector<std::pair<int, double>>> data;
-    data["series1"] = {{1, 1.5}, {2, 2.5}, {3, 3.5}};
-    data["series2"] = {{10, 10.5}, {20, 20.5}};
-
-    // Serialize to JSON
-    json archive;
-    save(archive, data);
-
-    std::cout << archive.dump(2) << std::endl;
-
-    // Deserialize
-    std::map<std::string, std::vector<std::pair<int, double>>> loaded;
-    load(archive, loaded);
-
-    assert(loaded == data);
-    return 0;
-}
+include/            Public headers (no "serialization/" prefix — this is the include root)
+  serializer.h       Umbrella include: core serializer + built-in codecs
+  core/              context, serializer, error_code/serialization_error
+  codecs/            type_codec specializations + native scalar casting
+  archive/           archive_traits contract + narrowing-safe numeric helpers
+  adapters/          json.h, xml.h, binary.h
+  metadata/          SERIALIZATION_MACRO family, macro/AST metadata providers
+  version.h/.cpp     serialization::version() — the only compiled source in the library
+Testing/Cxx/         GoogleTest suite (SerializationCxxTests): one binary covering
+                     all three backends plus a larger FpML-shaped example
+ThirdParty/          Vendored nlohmann/json and pugixml; Logging as a git submodule
+Docs/                Design notes
 ```
-
-### Example 2: Serializing with Variants
-
-```cpp
-#include "core/serialization_impl.h"
-
-using Value = std::variant<int, double, std::string, std::vector<int>>;
-
-int main() {
-    using namespace serialization;
-
-    std::vector<Value> values;
-    values.push_back(42);
-    values.push_back(3.14);
-    values.push_back(std::string("hello"));
-    values.push_back(std::vector<int>{1, 2, 3});
-
-    json archive;
-    save(archive, values);
-
-    std::vector<Value> loaded;
-    load(archive, loaded);
-
-    // Type information is preserved
-    assert(std::holds_alternative<int>(loaded[0]));
-    assert(std::holds_alternative<double>(loaded[1]));
-    assert(std::holds_alternative<std::string>(loaded[2]));
-    assert(std::holds_alternative<std::vector<int>>(loaded[3]));
-
-    return 0;
-}
-```
-
-### Example 3: Complete Application Example
-
-```cpp
-#include "core/serialization_impl.h"
-#include "reflection/reflection_macros.h"
-#include <fstream>
-
-class User
-{
-public:
-    User(int id, std::string name, std::vector<std::string> roles)
-        : id_(id), name_(std::move(name)), roles_(std::move(roles)) {}
-
-private:
-    User() = default;
-    void initialize() {
-        std::cout << "User " << name_ << " loaded" << std::endl;
-    }
-
-    SERIALIZATION_MACRO( User, id_, name_, roles_);
-
-    int id_;
-    std::string name_;
-    std::vector<std::string> roles_;
-
-    friend struct serialization::access::serializer;
-};
-
-class Database
-{
-public:
-    void add_user(const User& user) {
-        users_.push_back(user);
-    }
-
-    void save_to_file(const std::string& filename) {
-        using namespace serialization;
-        json archive;
-        save(archive, users_);
-
-        std::ofstream file(filename);
-        file << archive.dump(2);
-    }
-
-    void load_from_file(const std::string& filename) {
-        using namespace serialization;
-        std::ifstream file(filename);
-        json archive = json::parse(file);
-
-        load(archive, users_);
-    }
-
-private:
-    Database() = default;
-    void initialize() {}
-
-    SERIALIZATION_MACRO( Database, users_);
-
-    std::vector<User> users_;
-
-    friend struct serialization::access::serializer;
-};
-
-int main() {
-    // Create database
-    Database db;
-    db.add_user(User(1, "Alice", {"admin", "user"}));
-    db.add_user(User(2, "Bob", {"user"}));
-
-    // Save to file
-    db.save_to_file("database.json");
-
-    // Load from file
-    Database loaded_db;
-    loaded_db.load_from_file("database.json");
-
-    return 0;
-}
-```
-
-### Example 4: Binary Serialization for IPC
-
-```cpp
-#include "core/serialization_impl.h"
-#include "stream/multi_process_stream.h"
-
-struct Message
-{
-    int type;
-    std::string payload;
-    std::map<std::string, std::string> metadata;
-
-private:
-    Message() = default;
-    void initialize() {}
-
-    SERIALIZATION_MACRO( Message, type, payload, metadata);
-
-    friend struct serialization::access::serializer;
-};
-
-void send_message(const Message& msg) {
-    using namespace serialization;
-
-    // Serialize to binary stream
-    multi_process_stream buffer;
-    save(buffer, msg);
-
-    // Get raw bytes for IPC
-    auto raw_data = buffer.GetRawData();
-
-    // Send via socket, shared memory, pipe, etc.
-    // send_to_process(raw_data.data(), raw_data.size());
-}
-
-Message receive_message(const std::vector<unsigned char>& raw_data) {
-    using namespace serialization;
-
-    // Reconstruct stream from raw bytes
-    multi_process_stream buffer;
-    buffer.SetRawData(raw_data);
-
-    // Deserialize
-    Message msg;
-    load(buffer, msg);
-
-    return msg;
-}
-```
-
-## API Reference
-
-### Core Functions
-
-#### save
-
-```cpp
-template <typename Archiver, typename T>
-    requires BaseSerializable<T> || Container<T> || Reflectable<T> ||
-             SmartPointer<T> || TupleLike<T> || VariantLike<T>
-void save(Archiver& archive, const T& obj);
-```
-
-Serializes an object to the given archive.
-
-**Parameters**:
-- `archive`: The archiver (json or multi_process_stream)
-- `obj`: The object to serialize
-
-**Constraints**: T must satisfy at least one of the serialization concepts.
-
-#### load
-
-```cpp
-template <typename Archiver, typename T>
-    requires BaseSerializable<T> || Container<T> || Reflectable<T> ||
-             SmartPointer<T> || TupleLike<T> || VariantLike<T>
-void load(Archiver& archive, T& obj);
-```
-
-Deserializes an object from the given archive.
-
-**Parameters**:
-- `archive`: The archiver (json or multi_process_stream)
-- `obj`: The object to deserialize into
-
-**Constraints**: T must satisfy at least one of the serialization concepts.
-
-### Concepts
-
-#### BaseSerializable
-
-```cpp
-template <typename T>
-concept BaseSerializable =
-    (std::is_arithmetic_v<T> && !std::is_pointer_v<T> && !std::is_array_v<T>) ||
-    std::same_as<T, const char*> ||
-    std::same_as<T, std::string> ||
-    std::is_enum_v<T>;
-```
-
-Satisfied by: int, float, double, bool, char, enums, std::string, const char*
-
-#### Container
-
-```cpp
-template <typename T>
-concept Container = requires(T t) {
-    typename T::value_type;
-    typename T::size_type;
-    typename T::iterator;
-    typename T::const_iterator;
-    { t.begin() } -> std::same_as<typename T::iterator>;
-    { t.end() } -> std::same_as<typename T::iterator>;
-    { t.size() } -> std::convertible_to<typename T::size_type>;
-};
-```
-
-Satisfied by: std::vector, std::list, std::deque, std::set, std::map, etc.
-
-#### Reflectable
-
-```cpp
-template <typename T>
-concept Reflectable = requires {
-    { access::serializer::tuple<T>() };
-};
-```
-
-Satisfied by: Classes with `SERIALIZATION_MACRO`
-
-#### SmartPointer
-
-```cpp
-template <typename T>
-concept SmartPointer = requires(T t) {
-    { t.get() } -> std::convertible_to<typename T::element_type*>;
-    { t.reset() } -> std::same_as<void>;
-    { static_cast<bool>(t) } -> std::same_as<bool>;
-    typename T::element_type;
-};
-```
-
-Satisfied by: std::unique_ptr, std::shared_ptr
-
-#### TupleLike
-
-```cpp
-template <typename T>
-concept TupleLike = requires {
-    typename std::tuple_size<T>::type;
-};
-```
-
-Satisfied by: std::tuple, std::pair, std::array
-
-#### VariantLike
-
-```cpp
-template <typename T>
-concept VariantLike = requires(T t) {
-    { t.index() } -> std::convertible_to<std::size_t>;
-    { std::visit([](auto&&){}, t) };
-};
-```
-
-Satisfied by: std::variant
-
-### Macros
-
-#### SERIALIZATION_MACRO
-
-```cpp
-SERIALIZATION_MACRO(export_spec, ClassName, member1, member2, ...)
-```
-
-Adds reflection metadata to a class.
-
-**Parameters**:
-- `export_spec`: Export specification (SERIALIZATION_API or empty)
-- `ClassName`: Name of the class
-- `member1, member2, ...`: Member variables to serialize
-
-**Requirements**:
-- Class must have a default constructor (can be private)
-- Class must have an `initialize()` method (can be private)
-- Must grant friend access to `serialization::access::serializer`
-
-#### SERIALIZATION_REGISTER_DERIVED_SERIALIZATION
-
-```cpp
-SERIALIZATION_REGISTER_DERIVED_SERIALIZATION(ClassName)
-```
-
-Registers a derived class for polymorphic serialization.
-
-**Parameters**:
-- `ClassName`: The derived class to register
-
-**Usage**: Place after class definition, typically in source file
-
-**Effect**: Registers the type in both JSON and binary serialization registries
-
-### Archive Types
-
-#### json (nlohmann::json)
-
-Human-readable JSON format.
-
-**Advantages**:
-- Human-readable
-- Portable across platforms
-- Easy to debug
-- Supports schema validation
-
-**Disadvantages**:
-- Larger file size
-- Slower than binary
-
-#### multi_process_stream
-
-Efficient binary format for IPC and storage.
-
-**Advantages**:
-- Compact binary representation
-- Fast serialization/deserialization
-- Suitable for inter-process communication
-
-**Disadvantages**:
-- Not human-readable
-- Platform-dependent (endianness)
 
 ## Contributing
 
-Contributions are welcome! Please ensure:
-
-1. Code compiles with C++20 standard
-2. All tests pass
-3. New features include tests
-4. Code follows existing style
-
-To contribute:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Fork the repository and create a feature branch.
+2. Keep changes buildable on C++20 and run `ctest` before opening a PR.
+3. New behavior needs a test in `Testing/Cxx/`.
+4. Run `lintrunner` (config in `.lintrunner.toml`) — CI enforces the same
+   clang-format/cmake-format checks.
 
 ## License
 
@@ -1289,14 +464,13 @@ SOFTWARE.
 
 ## Author
 
-**QuarismAnalytix**
+**KhwarizmiAnalytix**
 
-- GitHub: [@QuarismAnalytix](https://github.com/QuarismAnalytix)
-- Repository: [Serialization](https://github.com/QuarismAnalytix/Serialization)
+- GitHub: [@KhwarizmiAnalytix](https://github.com/KhwarizmiAnalytix)
+- Repository: [Serialization](https://github.com/KhwarizmiAnalytix/Serialization)
 
 ## Acknowledgments
 
 - Built on [nlohmann/json](https://github.com/nlohmann/json) for JSON support
 - Uses [pugixml](https://pugixml.org/) for XML serialization
-- Uses C++20 concepts for type-safe serialization
-- Inspired by Boost.Serialization and Cereal
+- Uses C++20 concepts for compile-time type checking

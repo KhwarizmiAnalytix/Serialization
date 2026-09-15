@@ -10,9 +10,6 @@ include(spell)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-option(SERIALIZATION_ENABLE_JSON "Build the nlohmann JSON adapter" ON)
-option(SERIALIZATION_ENABLE_XML "Build the pugixml adapter" ON)
-option(SERIALIZATION_ENABLE_BINARY "Build the structured binary adapter" ON)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     set(_serialization_testing_default ON)
 else()
@@ -64,7 +61,7 @@ set_target_properties(
 )
 list(APPEND _serialization_targets Serialization)
 
-if(SERIALIZATION_ENABLE_JSON)
+
     add_library(SerializationJson INTERFACE)
     add_library(Serialization::Json ALIAS SerializationJson)
     set_target_properties(SerializationJson PROPERTIES EXPORT_NAME Json)
@@ -78,8 +75,7 @@ if(SERIALIZATION_ENABLE_JSON)
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
     install(FILES include/adapters/json.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/adapters)
-endif()
-if(SERIALIZATION_ENABLE_XML)
+
     add_library(SerializationPugiXml STATIC ThirdParty/pugixml/pugixml.cpp)
     set_target_properties(
         SerializationPugiXml PROPERTIES POSITION_INDEPENDENT_CODE ON EXPORT_NAME PugiXml
@@ -98,15 +94,14 @@ if(SERIALIZATION_ENABLE_XML)
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
     install(FILES include/adapters/xml.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/adapters)
-endif()
-if(SERIALIZATION_ENABLE_BINARY)
+
     add_library(SerializationBinary INTERFACE)
     add_library(Serialization::Binary ALIAS SerializationBinary)
     set_target_properties(SerializationBinary PROPERTIES EXPORT_NAME Binary)
     target_link_libraries(SerializationBinary INTERFACE SerializationCore)
     list(APPEND _serialization_targets SerializationBinary)
     install(FILES include/adapters/binary.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/adapters)
-endif()
+
 
 install(
     DIRECTORY include/

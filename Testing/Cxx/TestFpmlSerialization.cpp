@@ -682,8 +682,8 @@ TEST_F(FpmlSerializationTest, SimplePartyTest)
 
     // Serialize
     pugi::xml_document save_doc;
-    auto writer = test_support::Xml::writer(save_doc);
-    auto reader = test_support::Xml::reader(save_doc);
+    auto               writer = test_support::Xml::writer(save_doc);
+    auto               reader = test_support::Xml::reader(save_doc);
     serialization::serializer{}.save(writer, party1);
 
     std::string xml_str;
@@ -709,8 +709,8 @@ TEST_F(FpmlSerializationTest, NestedHeaderTest)
     test::MessageId msg_id("MSG12345", "http://www.example.com/messageId");
 
     pugi::xml_document msg_doc;
-    auto               msg_root = msg_doc.append_child("MessageId");
-    auto msg_writer = serialization::adapters::xml_writer{msg_root};
+    auto               msg_root   = msg_doc.append_child("MessageId");
+    auto               msg_writer = serialization::adapters::xml_writer{msg_root};
     serialization::serializer{}.save(msg_writer, msg_id);
 
     std::string msg_xml;
@@ -726,8 +726,8 @@ TEST_F(FpmlSerializationTest, NestedHeaderTest)
 
     // Serialize
     pugi::xml_document save_doc;
-    auto writer = test_support::Xml::writer(save_doc);
-    auto reader = test_support::Xml::reader(save_doc);
+    auto               writer = test_support::Xml::writer(save_doc);
+    auto               reader = test_support::Xml::reader(save_doc);
     serialization::serializer{}.save(writer, header);
 
     std::string xml_str;

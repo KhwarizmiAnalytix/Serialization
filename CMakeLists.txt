@@ -18,15 +18,18 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 else()
     set(_serialization_testing_default OFF)
 endif()
-option(SERIALIZATION_BUILD_TESTING "Build new-design serialization tests" ${_serialization_testing_default})
+option(SERIALIZATION_BUILD_TESTING "Build new-design serialization tests"
+       ${_serialization_testing_default}
+)
 
 add_library(SerializationCore INTERFACE)
 add_library(Serialization::Core ALIAS SerializationCore)
 set_target_properties(SerializationCore PROPERTIES EXPORT_NAME Core)
 target_compile_features(SerializationCore INTERFACE cxx_std_20)
-target_include_directories(SerializationCore INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_include_directories(
+    SerializationCore INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 if(MSVC)
     target_compile_options(SerializationCore INTERFACE /GR /Zc:__cplusplus)
 else()
@@ -46,12 +49,14 @@ add_library(Serialization SHARED include/version.cpp)
 add_library(Serialization::Serialization ALIAS Serialization)
 target_link_libraries(Serialization PUBLIC SerializationCore)
 target_compile_definitions(Serialization PRIVATE SERIALIZATION_VERSION_STRING="${PROJECT_VERSION}")
-set_target_properties(Serialization PROPERTIES
-    EXPORT_NAME Serialization
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    WINDOWS_EXPORT_ALL_SYMBOLS ON)
+set_target_properties(
+    Serialization
+    PROPERTIES EXPORT_NAME Serialization
+               LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+               ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+               RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+               WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
 list(APPEND _serialization_targets Serialization)
 
 if(SERIALIZATION_ENABLE_JSON)
@@ -59,24 +64,34 @@ if(SERIALIZATION_ENABLE_JSON)
     add_library(Serialization::Json ALIAS SerializationJson)
     set_target_properties(SerializationJson PROPERTIES EXPORT_NAME Json)
     target_link_libraries(SerializationJson INTERFACE SerializationCore)
-    target_include_directories(SerializationJson INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/nlohmann_json/include>)
+    target_include_directories(
+        SerializationJson
+        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/nlohmann_json/include>
+    )
     list(APPEND _serialization_targets SerializationJson)
-    install(DIRECTORY ThirdParty/nlohmann_json/include/nlohmann DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(DIRECTORY ThirdParty/nlohmann_json/include/nlohmann
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
     install(FILES include/adapters/json.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/adapters)
 endif()
 if(SERIALIZATION_ENABLE_XML)
     add_library(SerializationPugiXml STATIC ThirdParty/pugixml/pugixml.cpp)
-    set_target_properties(SerializationPugiXml PROPERTIES POSITION_INDEPENDENT_CODE ON EXPORT_NAME PugiXml)
-    target_include_directories(SerializationPugiXml PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/pugixml>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    set_target_properties(
+        SerializationPugiXml PROPERTIES POSITION_INDEPENDENT_CODE ON EXPORT_NAME PugiXml
+    )
+    target_include_directories(
+        SerializationPugiXml
+        PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/pugixml>
+               $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    )
     add_library(SerializationXml INTERFACE)
     add_library(Serialization::Xml ALIAS SerializationXml)
     set_target_properties(SerializationXml PROPERTIES EXPORT_NAME Xml)
     target_link_libraries(SerializationXml INTERFACE SerializationCore SerializationPugiXml)
     list(APPEND _serialization_targets SerializationXml SerializationPugiXml)
-    install(FILES ThirdParty/pugixml/pugixml.hpp ThirdParty/pugixml/pugiconfig.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(FILES ThirdParty/pugixml/pugixml.hpp ThirdParty/pugixml/pugiconfig.hpp
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
     install(FILES include/adapters/xml.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/adapters)
 endif()
 if(SERIALIZATION_ENABLE_BINARY)
@@ -88,25 +103,42 @@ if(SERIALIZATION_ENABLE_BINARY)
     install(FILES include/adapters/binary.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/adapters)
 endif()
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    FILES_MATCHING PATTERN "*.h" PATTERN "adapters" EXCLUDE)
-install(TARGETS ${_serialization_targets} EXPORT SerializationTargets
+install(
+    DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "adapters" EXCLUDE
+)
+install(
+    TARGETS ${_serialization_targets}
+    EXPORT SerializationTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(EXPORT SerializationTargets NAMESPACE Serialization:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Serialization)
-configure_package_config_file(cmake/SerializationConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/SerializationConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Serialization)
-write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/SerializationConfigVersion.cmake
-    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(EXPORT SerializationTargets NAMESPACE Serialization::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Serialization
+)
+configure_package_config_file(
+    cmake/SerializationConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/SerializationConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Serialization
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/SerializationConfigVersion.cmake VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/SerializationConfig.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/SerializationConfigVersion.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Serialization)
+              ${CMAKE_CURRENT_BINARY_DIR}/SerializationConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Serialization
+)
 
 if(SERIALIZATION_BUILD_TESTING)
     enable_testing()
     include(FetchContent)
-    FetchContent_Declare(googletest URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip)
+    FetchContent_Declare(
+        googletest URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+    )
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
     add_subdirectory(Testing/Cxx)

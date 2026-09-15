@@ -15,10 +15,9 @@ limitations under the License.
 
 #pragma once
 
+#include <memory>
 #include <new>      // for operator new
 #include <utility>  // for forward
-
-#include <memory>
 
 namespace serialization
 {

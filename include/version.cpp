@@ -2,5 +2,8 @@
 
 namespace serialization
 {
-const char* version() noexcept { return SERIALIZATION_VERSION_STRING; }
+const char* version() noexcept
+{
+    return SERIALIZATION_VERSION_STRING;
 }
+}  // namespace serialization

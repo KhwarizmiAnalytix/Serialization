@@ -1,0 +1,13 @@
+[project]
+name = "serialization"
+version = "1.0.0"
+description = "C++20 serialization library"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.format]
+
+[tool.codespell]
+skip = "ThirdParty,.git,build,build_*,__pycache__"

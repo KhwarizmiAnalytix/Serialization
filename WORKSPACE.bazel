@@ -1,0 +1,37 @@
+# =============================================================================
+# Serialization — Bazel workspace (standalone)
+# =============================================================================
+# Standalone Bazel build for the Serialization library. When consumed from
+# XSigma, XSigma's own workspace provides an overlay BUILD file instead — do
+# not edit this repo's vendored third-party trees.
+#
+# Unlike Parallel/LinearAlgebra/Logging, Serialization vendors no backend
+# submodules of its own under ThirdParty/ that need WORKSPACE wiring here:
+#   - ThirdParty/nlohmann_json and ThirdParty/pugixml are plain vendored
+#     source trees, consumed as filegroups/cc_library directly from
+#     //BUILD.bazel (no BUILD files of their own, so no repo rule needed).
+#   - ThirdParty/Logging is vendored but nothing in this repo's own sources
+#     includes it (confirmed: no logger/XSIGMA_LOG/glog/spdlog references
+#     under include/ or Testing/), so it is intentionally not wired up here.
+#   - Testing/Cxx's GoogleTest dependency is declared in MODULE.bazel via
+#     bzlmod instead of a vendored ThirdParty/googletest + local_repository.
+# =============================================================================
+
+workspace(name = "xsigma_serialization")
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# =============================================================================
+# Bazel Skylib
+# =============================================================================
+http_archive(
+    name = "bazel_skylib",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-1.4.2.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-1.4.2.tar.gz",
+    ],
+)
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+
+bazel_skylib_workspace()

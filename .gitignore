@@ -68,3 +68,6 @@ __pycache__/
 
 .lintbin/
 .dmypy.json
+
+# Bazel build outputs/convenience symlinks
+bazel-*

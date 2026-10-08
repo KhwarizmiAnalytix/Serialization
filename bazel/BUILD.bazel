@@ -1,0 +1,10 @@
+# =============================================================================
+# Serialization — Bazel helper exports (standalone)
+# =============================================================================
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "xsigma.bzl",
+    "serialization.bzl",
+])

@@ -1,0 +1,262 @@
+# =============================================================================
+# Serialization Library BUILD Configuration (standalone)
+# =============================================================================
+# Mirrors CMakeLists.txt's target graph one-for-one:
+#   SerializationCore   (INTERFACE, header-only)      -> SerializationCore
+#   Serialization       (SHARED, include/version.cpp) -> Serialization
+#   SerializationJson   (INTERFACE)                   -> SerializationJson
+#   SerializationPugiXml(STATIC)                       -> SerializationPugiXml
+#   SerializationXml    (INTERFACE)                    -> SerializationXml
+#   SerializationBinary (INTERFACE)                    -> SerializationBinary
+#
+# Include root is the repository root; public headers live under include/
+# (e.g. "core/serializer.h", "adapters/json.h") and are resolved via each
+# target's `includes = ["include"]`, matching CMake's
+# target_include_directories(... $<BUILD_INTERFACE:.../include>).
+# =============================================================================
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_pkg//pkg:install.bzl", "pkg_install")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+load("@rules_pkg//pkg:pkg.bzl", "pkg_tar")
+load("//bazel:serialization.bzl", "serialization_copts", "serialization_defines", "serialization_linkopts")
+
+package(default_visibility = ["//visibility:public"])
+
+# =============================================================================
+# SerializationCore — header-only (INTERFACE in CMake)
+# =============================================================================
+# include/adapters/*.h is intentionally excluded here: CMake's top-level
+# `install(DIRECTORY include/ ... PATTERN "adapters" EXCLUDE)` carves those
+# headers out of SerializationCore and installs/links each one with its own
+# adapter library (SerializationJson/Xml/Binary) instead.
+
+filegroup(
+    name = "serialization_core_hdrs",
+    srcs = glob(
+        [
+            "include/*.h",
+            "include/archive/*.h",
+            "include/codecs/*.h",
+            "include/core/*.h",
+            "include/metadata/*.h",
+        ],
+        allow_empty = True,
+    ),
+)
+
+cc_library(
+    name = "SerializationCore",
+    hdrs = [":serialization_core_hdrs"],
+    copts = serialization_copts(),
+    defines = serialization_defines(),
+    includes = ["include"],
+    linkopts = serialization_linkopts(),
+    visibility = ["//visibility:public"],
+)
+
+# =============================================================================
+# Serialization — SHARED library with the one real compiled entry point
+# (version()). See include/version.cpp / version.h: SERIALIZATION_VERSION_STRING
+# is supplied here the way CMake's
+# target_compile_definitions(Serialization PRIVATE SERIALIZATION_VERSION_STRING="${PROJECT_VERSION}")
+# does, with PROJECT_VERSION hardcoded to the CMakeLists.txt project() version (2.0.0).
+# =============================================================================
+
+cc_library(
+    name = "Serialization",
+    srcs = ["include/version.cpp"],
+    copts = serialization_copts(),
+    defines = serialization_defines() + ["SERIALIZATION_VERSION_STRING=\\\"2.0.0\\\""],
+    linkopts = serialization_linkopts(),
+    linkstatic = False,  # mirrors CMake's add_library(Serialization SHARED ...)
+    visibility = ["//visibility:public"],
+    deps = [":SerializationCore"],
+)
+
+# =============================================================================
+# Vendored nlohmann_json headers (ThirdParty/nlohmann_json/include) — wrapped
+# once here since SerializationJson is the only consumer, mirroring CMake's
+# target_include_directories(SerializationJson INTERFACE
+#   $<BUILD_INTERFACE:.../ThirdParty/nlohmann_json/include>).
+# =============================================================================
+
+filegroup(
+    name = "nlohmann_json_hdrs",
+    srcs = glob(
+        ["ThirdParty/nlohmann_json/include/nlohmann/**/*.hpp"],
+        allow_empty = True,
+    ),
+)
+
+cc_library(
+    name = "nlohmann_json",
+    hdrs = [":nlohmann_json_hdrs"],
+    includes = ["ThirdParty/nlohmann_json/include"],
+    visibility = ["//visibility:public"],
+)
+
+# =============================================================================
+# SerializationJson — header-only (INTERFACE in CMake)
+# =============================================================================
+
+cc_library(
+    name = "SerializationJson",
+    hdrs = ["include/adapters/json.h"],
+    copts = serialization_copts(),
+    defines = serialization_defines(),
+    includes = ["include"],
+    linkopts = serialization_linkopts(),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":SerializationCore",
+        ":nlohmann_json",
+    ],
+)
+
+# =============================================================================
+# SerializationPugiXml — STATIC, compiles the vendored pugixml.cpp
+# =============================================================================
+
+cc_library(
+    name = "SerializationPugiXml",
+    srcs = ["ThirdParty/pugixml/pugixml.cpp"],
+    hdrs = [
+        "ThirdParty/pugixml/pugiconfig.hpp",
+        "ThirdParty/pugixml/pugixml.hpp",
+    ],
+    copts = serialization_copts(),
+    includes = ["ThirdParty/pugixml"],
+    linkstatic = True,  # mirrors CMake's add_library(SerializationPugiXml STATIC ...)
+    visibility = ["//visibility:public"],
+)
+
+# =============================================================================
+# SerializationXml — header-only (INTERFACE in CMake), depends on PugiXml
+# =============================================================================
+
+cc_library(
+    name = "SerializationXml",
+    hdrs = ["include/adapters/xml.h"],
+    copts = serialization_copts(),
+    defines = serialization_defines(),
+    includes = ["include"],
+    linkopts = serialization_linkopts(),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":SerializationCore",
+        ":SerializationPugiXml",
+    ],
+)
+
+# =============================================================================
+# SerializationBinary — header-only (INTERFACE in CMake)
+# =============================================================================
+
+cc_library(
+    name = "SerializationBinary",
+    hdrs = ["include/adapters/binary.h"],
+    copts = serialization_copts(),
+    defines = serialization_defines(),
+    includes = ["include"],
+    linkopts = serialization_linkopts(),
+    visibility = ["//visibility:public"],
+    deps = [":SerializationCore"],
+)
+
+# =============================================================================
+# Install / export (bazel-side analogue of CMake's combined
+# `install(DIRECTORY include/ ... PATTERN "adapters" EXCLUDE)` +
+# per-adapter `install(FILES include/adapters/*.h ...)` +
+# `install(TARGETS ${_serialization_targets} ...)`).
+#
+# CMake's GNUInstallDirs default puts everything under a flat "include"
+# (headers) / "lib" (compiled libs) prefix -- there is no per-project nested
+# subdirectory like Parallel's "include/Parallel/include" -- so the bazel
+# packaging mirrors that flat layout exactly.
+#
+# Of the six cc_library targets, only Serialization (SHARED) and
+# SerializationPugiXml (STATIC) compile anything; SerializationCore/Json/Xml/
+# Binary are INTERFACE-only and produce no .a/.so/.dylib, so they are not
+# (and cannot be) listed as `srcs` of the libs pkg_files below -- verified
+# via `bazel build` before wiring this up (see report).
+# =============================================================================
+
+# Core headers (include/*.h, include/{archive,codecs,core,metadata}/*.h) --
+# mirrors CMake's install(DIRECTORY include/ ... PATTERN "adapters" EXCLUDE).
+pkg_files(
+    name = "serialization_installed_core_hdrs",
+    srcs = [":serialization_core_hdrs"],
+    prefix = "include",
+    strip_prefix = strip_prefix.from_pkg("include"),
+)
+
+# Adapter headers (json.h, xml.h, binary.h) -- mirrors CMake's per-adapter
+# install(FILES include/adapters/*.h DESTINATION include/adapters).
+pkg_files(
+    name = "serialization_installed_adapter_hdrs",
+    srcs = [
+        "include/adapters/binary.h",
+        "include/adapters/json.h",
+        "include/adapters/xml.h",
+    ],
+    prefix = "include",
+    strip_prefix = strip_prefix.from_pkg("include"),
+)
+
+# Vendored nlohmann_json headers -- mirrors CMake's
+# install(DIRECTORY ThirdParty/nlohmann_json/include/nlohmann DESTINATION include).
+pkg_files(
+    name = "serialization_installed_nlohmann_hdrs",
+    srcs = [":nlohmann_json_hdrs"],
+    prefix = "include",
+    strip_prefix = strip_prefix.from_pkg("ThirdParty/nlohmann_json/include"),
+)
+
+# Vendored pugixml headers -- mirrors CMake's
+# install(FILES ThirdParty/pugixml/pugixml.hpp ThirdParty/pugixml/pugiconfig.hpp
+#         DESTINATION include).
+pkg_files(
+    name = "serialization_installed_pugixml_hdrs",
+    srcs = [
+        "ThirdParty/pugixml/pugiconfig.hpp",
+        "ThirdParty/pugixml/pugixml.hpp",
+    ],
+    prefix = "include",
+    strip_prefix = strip_prefix.from_pkg("ThirdParty/pugixml"),
+)
+
+# Compiled libraries -- only Serialization (SHARED) and SerializationPugiXml
+# (STATIC) produce actual .so/.dylib/.a output; the other four targets are
+# header-only (INTERFACE) and have no compiled artifact to package. Mirrors
+# CMake's install(TARGETS ${_serialization_targets} ARCHIVE/LIBRARY DESTINATION lib).
+pkg_files(
+    name = "serialization_installed_libs",
+    srcs = [
+        ":Serialization",
+        ":SerializationPugiXml",
+    ],
+    prefix = "lib",
+)
+
+pkg_tar(
+    name = "serialization_pkg_tar",
+    srcs = [
+        ":serialization_installed_adapter_hdrs",
+        ":serialization_installed_core_hdrs",
+        ":serialization_installed_libs",
+        ":serialization_installed_nlohmann_hdrs",
+        ":serialization_installed_pugixml_hdrs",
+    ],
+)
+
+pkg_install(
+    name = "install",
+    srcs = [
+        ":serialization_installed_adapter_hdrs",
+        ":serialization_installed_core_hdrs",
+        ":serialization_installed_libs",
+        ":serialization_installed_nlohmann_hdrs",
+        ":serialization_installed_pugixml_hdrs",
+    ],
+)

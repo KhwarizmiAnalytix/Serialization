@@ -29,7 +29,7 @@ class BusinessCenters
 {
 public:
     BusinessCenters() = default;
-    explicit BusinessCenters(std::vector<std::string> centers)
+    explicit BusinessCenters(const std::vector<std::string>& centers)
     {
         for (const auto& c : centers)
         {
@@ -49,8 +49,8 @@ class DateAdjustments
 {
 public:
     DateAdjustments() = default;
-    DateAdjustments(std::string convention, std::vector<std::string> centers)
-        : business_day_convention_(std::move(convention)), business_centers_(std::move(centers))
+    DateAdjustments(std::string convention, const std::vector<std::string>& centers)
+        : business_day_convention_(std::move(convention)), business_centers_(centers)
     {
     }
 
@@ -68,9 +68,9 @@ class AdjustableDate
 {
 public:
     AdjustableDate() = default;
-    AdjustableDate(std::string date, std::string convention, std::vector<std::string> centers)
-        : unadjusted_date_(std::move(date)),
-          date_adjustments_(std::move(convention), std::move(centers))
+    AdjustableDate(
+        std::string date, std::string convention, const std::vector<std::string>& centers)
+        : unadjusted_date_(std::move(date)), date_adjustments_(std::move(convention), centers)
     {
     }
 
@@ -196,13 +196,13 @@ public:
         std::string              period,
         std::string              day_type,
         std::string              convention,
-        std::vector<std::string> centers,
+        const std::vector<std::string>& centers,
         std::string              date_relative_to)
         : period_multiplier_(period_multiplier),
           period_(std::move(period)),
           day_type_(std::move(day_type)),
           business_day_convention_(std::move(convention)),
-          business_centers_(std::move(centers)),
+          business_centers_(centers),
           date_relative_to_(std::move(date_relative_to))
     {
     }
@@ -349,7 +349,7 @@ public:
     FixedCalculation() = default;
     FixedCalculation(NotionalSchedule notional, FixedRateSchedule rate, std::string day_count)
         : notional_schedule_(std::move(notional)),
-          fixed_rate_schedule_(std::move(rate)),
+          fixed_rate_schedule_(rate),
           day_count_fraction_(std::move(day_count))
     {
     }
@@ -692,7 +692,7 @@ TEST_F(FpmlSerializationTest, SimplePartyTest)
         save_doc.save(oss, "  ");
         xml_str = oss.str();
     }
-    std::cout << "Serialized XML:\n" << xml_str << std::endl;
+    std::cout << "Serialized XML:\n" << xml_str << "\n";
 
     // Deserialize
     test::Party party_loaded;
@@ -719,7 +719,7 @@ TEST_F(FpmlSerializationTest, NestedHeaderTest)
         msg_doc.save(oss, "  ");
         msg_xml = oss.str();
     }
-    std::cout << "MessageId alone XML:\n" << msg_xml << std::endl;
+    std::cout << "MessageId alone XML:\n" << msg_xml << "\n";
 
     // Now test Header with MessageId
     test::Header header(msg_id, "BANKXYZ", "CLIENTABC", "2024-12-15T10:30:00Z");
@@ -736,7 +736,7 @@ TEST_F(FpmlSerializationTest, NestedHeaderTest)
         save_doc.save(oss, "  ");
         xml_str = oss.str();
     }
-    std::cout << "Header XML:\n" << xml_str << std::endl;
+    std::cout << "Header XML:\n" << xml_str << "\n";
 
     // Deserialize
     test::Header header_loaded;

@@ -28,7 +28,7 @@ struct archive_traits<external::Writer>
 {
     static void write_scalar(external::Writer& a, int value) { a.values.push_back(value); }
     template <class F>
-    static void write_object(external::Writer& a, object_header, F&& body)
+    static void write_object(external::Writer& a, const object_header&, F&& body)
     {
         body(a);
     }
@@ -48,10 +48,12 @@ struct archive_traits<external::Writer>
         body(a);
     }
     template <class F>
-    static void write_tagged(external::Writer& a, tagged_header h, F&& body)
+    static void write_tagged(external::Writer& a, const tagged_header& h, F&& body)
     {
         if (h.present)
+        {
             body(a);
+        }
     }
 };
 template <>
@@ -124,10 +126,14 @@ TEST(BinaryProtocol, FixedPortableIntegerEncoding)
     codec.save(writer, std::uint64_t{0x0102030405060708});
     std::vector<std::byte> expected;
     for (unsigned char c : {'S', 'R', 'L', '1'})
+    {
         expected.push_back(static_cast<std::byte>(c));
+    }
     expected.push_back(std::byte{3});
     for (unsigned char c : {8, 7, 6, 5, 4, 3, 2, 1})
+    {
         expected.push_back(static_cast<std::byte>(c));
+    }
     EXPECT_EQ(bytes, expected);
     serialization::adapters::binary_reader reader(expected);
     std::uint64_t                          loaded = 0;

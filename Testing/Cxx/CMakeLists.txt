@@ -7,7 +7,7 @@ target_link_libraries(
             Serialization::Binary GTest::gtest_main
 )
 if(SERIALIZATION_ENABLE_CLANGTIDY)
-    quarisma_target_clang_tidy(SerializationCxxTests)
+    xsigma_target_clang_tidy(SerializationCxxTests OFF)
 endif()
 if(MSVC)
     # The typed-test suite instantiates every case over 3 backends, which

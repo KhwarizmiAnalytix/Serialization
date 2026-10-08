@@ -63,8 +63,12 @@ else()
   # Always skip vendored trees. `ThirdParty` alone only matches a directory
   # *entry* during os.walk; `*ThirdParty*` also matches full paths if codespell
   # is pointed at a ThirdParty file or the walk starts inside that tree.
+  # "build*" (not just "build"/"Build") so it also matches the actual
+  # build-directory name this repo uses, e.g. build_ninja — otherwise
+  # codespell walks into it and flags vendored FetchContent sources under
+  # <build_dir>/_deps (e.g. googletest's own docs) that aren't ours to fix.
   set(_spell_skip
-      ".git,.augment,.github,.vscode,build,Build,Cmake,ThirdParty,third_party,3rdparty,*ThirdParty*,*third_party*,*3rdparty*,.mypy_cache,.ruff_cache,*.mypy_cache*,*.ruff_cache*"
+      ".git,.augment,.github,.vscode,build*,Build*,Cmake,ThirdParty,third_party,3rdparty,*ThirdParty*,*third_party*,*3rdparty*,.mypy_cache,.ruff_cache,*.mypy_cache*,*.ruff_cache*"
   )
   list(APPEND _spell_args "--skip=${_spell_skip}")
 

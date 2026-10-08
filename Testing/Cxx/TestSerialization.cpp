@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdint>
 #include <deque>
 #include <limits>
 #include <list>
@@ -44,7 +45,7 @@ TYPED_TEST(SerializationTest, Scalars)
     check<TypeParam>(std::numeric_limits<std::uint64_t>::max());
     check<TypeParam>(std::string{});
     check<TypeParam>(std::string{"text <>&\" and UTF-8: café"});
-    enum class Mode : unsigned
+    enum class Mode : std::uint8_t
     {
         first,
         second

@@ -1,12 +1,6 @@
 # Serialization
 
-C++20 serialization library with template-based core and JSON, XML,
-and binary adapters under `include/`. Preserve the documented
-`serialization::serialization_error` exception API, including error codes
-and paths; return-value guidance from other libraries does not replace it.
-Public targets include `Serialization::Core`, `Serialization::Json`,
-`Serialization::Xml`, `Serialization::Binary`, and `Serialization::Serialization`.
-Dependencies are under `ThirdParty/`.
+Standalone C++ serialization library. Source lives in `include/`; tests live in `Testing/Cxx/`. Use namespace `serialization` and `SERIALIZATION_*` export macros. Dependencies are under `ThirdParty/`.
 
 ## Shared agent guidance
 
@@ -44,17 +38,18 @@ python3 setup.py config.build.test
 For compiler or generator requirements, follow `README.md` and CI.
 The repository also documents direct CMake commands for integration and CI.
 
-The CMake test option is `SERIALIZATION_BUILD_TESTING`. The setup
-helper's `test` token runs tests; do not invent a
-`SERIALIZATION_ENABLE_TESTING` option. Use the configured C++20 toolchain.
+For Bazel, also run from `Scripts/`:
+
+```sh
+python3 setup_bazel.py config.build.test
+```
 
 ## Test conventions
 
-Tests live in `Testing/Cxx/`, use Google Test and `TestSupport.h`,
-and include typed tests across binary, JSON, and XML backends. Preserve
-`TYPED_TEST` patterns and exception/error-path assertions. Register new
-files in the explicit `Testing/Cxx/CMakeLists.txt` source list. There is no
-Bazel build in this repository.
+Match adjacent test cases and testing framework conventions in the repository.
+Tests use `Test*.cpp` or `Test*.cxx` under `Testing/Cxx/`; CMake uses a recursive glob
+while Bazel uses a package-local glob. Check exclusions and register new subdirectories
+in both systems when adding tests.
 
 ## Verification and scope
 
@@ -67,3 +62,21 @@ changes need frontmatter/link/whitespace validation, not compilation.
 Keep unrelated user edits and dependency sources intact. Share review
 findings in the response or pull request; do not create unsolicited status
 documents. Follow this repository's existing license and contribution policy.
+
+## CMake Configuration Message Alignment
+
+All `message("  LABEL : value")` configuration summary messages in CMakeLists.txt
+and `Cmake/lto.cmake` must align colons at exactly **24 characters from the opening
+quote** (inclusive).
+
+Format: `message("  LABEL{PADDING}: VALUE")`
+- Opening `"`: position 1
+- Two spaces + label + padding: positions 2-23 (22 chars total)
+- Colon `:`: position 24
+
+Example:
+```cmake
+message("  Icecc               : ${SERIALIZATION}_ENABLE_ICECC}")
+```
+
+This ensures all colons in configuration output form a vertical line for readability.

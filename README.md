@@ -1,7 +1,9 @@
 # C++20 Serialization Library
 
+[![CI](https://github.com/KhwarizmiAnalytix/Serialization/actions/workflows/ci.yml/badge.svg)](https://github.com/KhwarizmiAnalytix/Serialization/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/KhwarizmiAnalytix/Serialization/branch/main/graph/badge.svg)](https://codecov.io/gh/KhwarizmiAnalytix/Serialization)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
 
 A header-only C++20 serialization core with a template archive parameter: the

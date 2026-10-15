@@ -35,7 +35,7 @@ jobs:
       - name: Install coverage-tool
         run: |
           sudo apt-get update && sudo apt-get install -y lcov
-          pip install "git+https://github.com/KhwarizmiAnalytix/coverage-tool.git"
+          pip install codespell "git+https://github.com/KhwarizmiAnalytix/coverage-tool.git"
 
       - name: Configure
         env:

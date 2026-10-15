@@ -77,6 +77,11 @@ jobs:
       - name: Install codespell
         run: pip install codespell
 
+      - name: Expose clang-tidy (macOS)
+        run: |
+          brew list llvm &>/dev/null || brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+
       - name: Configure
         run: >
           cmake -S . -B build -G Ninja
@@ -149,6 +154,12 @@ jobs:
 
       - name: Install codespell
         run: pip install codespell
+
+      - name: Expose clang-tidy (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew list llvm &>/dev/null || brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         run: >

@@ -176,3 +176,106 @@ jobs:
           ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:detect_leaks=${{ matrix.os == 'ubuntu-latest' && '1' || '0' }}
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: ctest --test-dir build --output-on-failure --timeout 180
+
+  # ---------------------------------------------------------------------------
+  # Compiler cache + Icecream: exercises SERIALIZATION_ENABLE_CACHE /
+  # SERIALIZATION_CACHE_TYPE (ccache, sccache) and SERIALIZATION_ENABLE_ICECC
+  # across Linux, macOS, and Windows. buildcache is a valid CACHE_TYPE value
+  # too but isn't exercised here (no pinned installer wired up). Icecream has
+  # no Windows port, so there is no windows-icecc entry.
+  # ---------------------------------------------------------------------------
+  cache-icecc:
+    name: Cache/Icecc / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-ccache
+            os: ubuntu-latest
+            backend: ccache
+            icecc: 'OFF'
+          - name: linux-sccache
+            os: ubuntu-latest
+            backend: sccache
+            icecc: 'OFF'
+          - name: linux-icecc
+            os: ubuntu-latest
+            backend: none
+            icecc: 'ON'
+          - name: macos-ccache
+            os: macos-latest
+            backend: ccache
+            icecc: 'OFF'
+          - name: macos-sccache
+            os: macos-latest
+            backend: sccache
+            icecc: 'OFF'
+          - name: macos-icecc
+            os: macos-latest
+            backend: none
+            icecc: 'ON'
+          - name: windows-ccache
+            os: windows-latest
+            backend: ccache
+            icecc: 'OFF'
+          - name: windows-sccache
+            os: windows-latest
+            backend: sccache
+            icecc: 'OFF'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja, ccache, icecc (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build ccache icecc
+
+      - name: Install Ninja, ccache, icecream (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja ccache icecream
+
+      - name: Install ccache (Windows)
+        if: runner.os == 'Windows'
+        run: choco install -y ccache
+
+      - name: Set up sccache
+        if: matrix.backend == 'sccache'
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Configure (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DSERIALIZATION_ENABLE_CACHE=ON
+          -DSERIALIZATION_CACHE_TYPE=${{ matrix.backend }}
+          -DSERIALIZATION_ENABLE_ICECC=${{ matrix.icecc }}
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -S . -B build
+          -DSERIALIZATION_ENABLE_CACHE=ON
+          -DSERIALIZATION_CACHE_TYPE=${{ matrix.backend }}
+          -DSERIALIZATION_ENABLE_ICECC=${{ matrix.icecc }}
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: cmake --build build --parallel
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release --parallel
+
+      - name: Test (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: ctest --test-dir build --output-on-failure --timeout 120
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          ctest --test-dir build --build-config Release
+          --output-on-failure --timeout 120

@@ -180,8 +180,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # Compiler cache + Icecream: exercises SERIALIZATION_ENABLE_CACHE /
   # SERIALIZATION_CACHE_TYPE (ccache, sccache) and SERIALIZATION_ENABLE_ICECC
-  # across Linux, macOS, and Windows. buildcache is a valid CACHE_TYPE value
-  # too but isn't exercised here (no pinned installer wired up). Icecream has
+  # across Linux, macOS, and Windows. BuildCache runs in buildcache.yml. Icecream has
   # no Windows port, so there is no windows-icecc entry.
   # ---------------------------------------------------------------------------
   cache-icecc:

@@ -18,6 +18,8 @@ endif()
 option(SERIALIZATION_BUILD_TESTING "Build new-design serialization tests"
        ${_serialization_testing_default}
 )
+option(SERIALIZATION_ENABLE_VALGRIND "Execute Serialization test suite with Valgrind" OFF)
+mark_as_advanced(SERIALIZATION_ENABLE_VALGRIND)
 
 add_library(SerializationCore INTERFACE)
 add_library(Serialization::Core ALIAS SerializationCore)
@@ -133,6 +135,9 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/SerializationConfig.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Serialization
 )
 
+if(SERIALIZATION_ENABLE_VALGRIND)
+    include(valgrind)
+endif()
 if(SERIALIZATION_BUILD_TESTING)
     enable_testing()
     include(FetchContent)
@@ -142,4 +147,7 @@ if(SERIALIZATION_BUILD_TESTING)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
     add_subdirectory(Testing/Cxx)
+endif()
+if(SERIALIZATION_ENABLE_VALGRIND AND SERIALIZATION_BUILD_TESTING)
+    xsigma_apply_valgrind_timeouts()
 endif()

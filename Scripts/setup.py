@@ -21,6 +21,8 @@ Usage:
     python Scripts/setup.py config.build.test.gcc.release
 """
 
+import glob
+import importlib.util
 import os
 import platform
 import re
@@ -45,7 +47,12 @@ except ImportError:  # Windows CLI smoke and some CI jobs skip pip install
     class Style:  # pylint: disable=too-few-public-methods
         RESET_ALL = ""
 
-from helpers import build as build_helper, config as config_helper, cppcheck as cppcheck_helper, test as test_helper
+from helpers import (
+    build as build_helper,
+    config as config_helper,
+    cppcheck as cppcheck_helper,
+    test as test_helper,
+)
 
 DEBUG_FLAG = False
 
@@ -128,6 +135,29 @@ class SummaryReporter:
             }
         except Exception as e:
             self.reports["cppcheck"] = {"status": "error", "message": f"Failed to parse cppcheck results: {e}"}
+
+    def add_valgrind_report(self, build_path: str, exit_code: int):
+        valgrind_logs = glob.glob(os.path.join(build_path, "Testing", "Temporary", "MemoryChecker.*.log"))
+        if not valgrind_logs:
+            self.reports["valgrind"] = {"status": "not_run", "message": "Valgrind was not executed or no logs found"}
+            return
+        try:
+            memory_leaks = 0
+            memory_errors = 0
+            for log_file in valgrind_logs:
+                with open(log_file, encoding="utf-8") as f:
+                    content = f.read()
+                memory_leaks += sum(int(m) for m in re.findall(r"definitely lost: (\d+)", content) if int(m) > 0)
+                memory_errors += sum(int(m) for m in re.findall(r"ERROR SUMMARY: (\d+) errors", content) if int(m) > 0)
+            self.reports["valgrind"] = {
+                "status": "completed",
+                "exit_code": exit_code,
+                "memory_leaks": memory_leaks,
+                "memory_errors": memory_errors,
+                "log_files": valgrind_logs,
+            }
+        except Exception as e:
+            self.reports["valgrind"] = {"status": "error", "message": f"Failed to parse valgrind results: {e}"}
 
     def add_coverage_report(self, build_path: str, exit_code: int):
         """Parse the coverage-tool JSON report and extract summary metrics."""
@@ -212,6 +242,17 @@ class SummaryReporter:
                     if count > 0:
                         print_status(f"  - {issue_type}: {count}", "INFO")
                 print_status(f"  Log file: {report['log_file']}", "INFO")
+
+        elif tool == "valgrind":
+            leaks = report["memory_leaks"]
+            errors = report["memory_errors"]
+            if leaks == 0 and errors == 0:
+                print_status(f"{tool_name}: No memory issues found", "SUCCESS")
+            else:
+                if leaks > 0:
+                    print_status(f"{tool_name}: Found {leaks} memory leaks", "ERROR")
+                if errors > 0:
+                    print_status(f"{tool_name}: Found {errors} memory errors", "ERROR")
 
         elif tool == "coverage":
             print_status("\n" + "=" * 80, "INFO")
@@ -341,6 +382,7 @@ class SerializationFlags:
             "spell",
             "coverage",
             "cppcheck",
+            "valgrind",
         ]
         self.__description = [
             "use Icecream (icecc) distributed compiler",
@@ -351,6 +393,7 @@ class SerializationFlags:
             "enable spell checking with automatic corrections (WARNING: modifies source files)",
             "enable code coverage instrumentation",
             "enable cppcheck static analysis",
+            "run the test suite under Valgrind memcheck (SERIALIZATION_ENABLE_VALGRIND)",
         ]
 
     def __build_cmake_flag(self):
@@ -363,6 +406,7 @@ class SerializationFlags:
             "fix": "SERIALIZATION_ENABLE_FIX",
             "spell": "SERIALIZATION_ENABLE_SPELL",
             "coverage": "SERIALIZATION_ENABLE_COVERAGE",
+            "valgrind": "SERIALIZATION_ENABLE_VALGRIND",
             # "cppcheck" runs via Scripts/helpers/cppcheck.py after the build; no
             # CMakeLists.txt option consumes it (avoid an unused-var warning).
         }
@@ -403,15 +447,15 @@ class SerializationFlags:
                     self.builder_suffix += f"_{arg}"
 
     def __validate_flags(self):
-        if self.__value.get("coverage") == self.ON:
-            try:
-                import coverage_tool  # noqa: F401
-            except ImportError:
-                print_status(
-                    "coverage-tool is not installed. Install with: pip install coverage-tool",
-                    "ERROR",
-                )
-                sys.exit(1)
+        if (
+            self.__value.get("coverage") == self.ON
+            and importlib.util.find_spec("coverage_tool") is None
+        ):
+            print_status(
+                "coverage-tool is not installed. Install with: pip install coverage-tool",
+                "ERROR",
+            )
+            sys.exit(1)
 
         if self.__value.get("spell") == self.ON:
             print_status("SPELL CHECKING ENABLED: Automatic spelling corrections will be applied during build!", "WARNING")
@@ -420,8 +464,11 @@ class SerializationFlags:
     def create_cmake_flags(self, cmake_cmd_flags, build_enum, system):
         debug_print("Create cmake flags")
         del system  # unused; kept for parity with the CMake-driven build-type selection below
-        if self.__value.get("coverage") == self.ON:
-            print_status("Enabling debug build for coverage analysis", "INFO")
+        if (
+            self.__value.get("coverage") == self.ON
+            or self.__value.get("valgrind") == self.ON
+        ):
+            print_status("Enabling debug build for valgrind or coverage analysis", "INFO")
             # Title-case to match $<CONFIG> generator-expression output used
             # in CMakeLists.txt for the library output directory -- coverage-
             # tool's multi_config_search_dirs() looks for "Debug" (exact
@@ -446,6 +493,9 @@ class SerializationFlags:
 
     def is_coverage(self):
         return self.__value["coverage"] == self.ON
+
+    def is_valgrind(self):
+        return self.__value["valgrind"] == self.ON
 
     def is_cppcheck(self):
         return self.__value["cppcheck"] == self.ON
@@ -656,9 +706,13 @@ class SerializationConfiguration:
             return 1
 
     def test(self, source_path, build_path):
-        del source_path, build_path  # ctest is run from the build directory only
         if self.__value["test"] != "test":
             return 0
+        if self.__serialization_flags.is_valgrind():
+            exit_code = test_helper.run_valgrind_test(source_path, build_path, self.__shell_flag())
+            self.summary_reporter.add_valgrind_report(build_path, exit_code)
+            return exit_code
+        del source_path, build_path  # ctest is run from the build directory only
         return test_helper.run_ctest(
             self.__value["builder"],
             self.__value["build_enum"],

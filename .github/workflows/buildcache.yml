@@ -54,6 +54,7 @@ jobs:
           --cache=ON
           --cache-backend=buildcache
           --testing=ON
+          --benchmark=OFF
 
       - name: Verify launcher and clean rebuild cache hits
         run: python Scripts/setup.py verifycache --build-dir build --target Serialization --parallel 4

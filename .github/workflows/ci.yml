@@ -46,14 +46,14 @@ jobs:
 
       - name: Configure
         run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          python3 "${{ github.workspace }}/Scripts/setup.py" config --compiler=default --source-dir . --build-dir build --generator Ninja
+          --build-type=${{ matrix.build_type }}
 
       - name: Build
-        run: cmake --build build --parallel
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" build --build-dir build --parallel=4
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure --timeout 120
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" test --build-dir . --build-dir build --test-timeout 120
 
   # ---------------------------------------------------------------------------
   # macOS: AppleClang, Debug and Release.
@@ -80,18 +80,18 @@ jobs:
       - name: Expose clang-tidy (macOS)
         run: |
           brew list llvm &>/dev/null || brew install llvm
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --install-prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          python3 "${{ github.workspace }}/Scripts/setup.py" config --compiler=default --source-dir . --build-dir build --generator Ninja
+          --build-type=${{ matrix.build_type }}
 
       - name: Build
-        run: cmake --build build --parallel
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" build --build-dir build --parallel=4
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure --timeout 120
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" test --build-dir . --build-dir build --test-timeout 120
 
   # ---------------------------------------------------------------------------
   # Windows: MSVC, Debug and Release. Shared Serialization.dll sits next to
@@ -114,15 +114,14 @@ jobs:
         run: pip install codespell
 
       - name: Configure
-        run: cmake -S . -B build
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" config --compiler=default --generator=default --source-dir . --build-dir build
 
       - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" build --build-dir build --build-type ${{ matrix.build_type }} --parallel=4
 
       - name: Test
         run: >
-          ctest --test-dir build --build-config ${{ matrix.build_type }}
-          --output-on-failure --timeout 120
+          python3 "${{ github.workspace }}/Scripts/setup.py" test --build-dir . --build-dir build --build-type ${{ matrix.build_type }} --test-timeout 120
 
   # ---------------------------------------------------------------------------
   # Sanitizers: Clang ASan and UBSan, Debug. Linux + macOS only.
@@ -159,23 +158,23 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew list llvm &>/dev/null || brew install llvm
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --install-prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug
-          -DSERIALIZATION_ENABLE_SANITIZER=ON
-          -DSERIALIZATION_SANITIZER_TYPE=${{ matrix.sanitizer }}
+          python3 "${{ github.workspace }}/Scripts/setup.py" config --compiler=default --source-dir . --build-dir build --generator Ninja
+          --build-type=Debug
+          --sanitizer=ON
+          --sanitizer-types=${{ matrix.sanitizer }}
 
       - name: Build
-        run: cmake --build build --parallel
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" build --build-dir build --parallel=4
 
       - name: Test
         env:
           ASAN_OPTIONS: halt_on_error=1:abort_on_error=1:detect_leaks=${{ matrix.os == 'ubuntu-latest' && '1' || '0' }}
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-        run: ctest --test-dir build --output-on-failure --timeout 180
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" test --build-dir . --build-dir build --test-timeout 180
 
   # ---------------------------------------------------------------------------
   # Compiler cache + Icecream: exercises SERIALIZATION_ENABLE_CACHE /
@@ -247,34 +246,33 @@ jobs:
       - name: Configure (Linux/macOS)
         if: runner.os != 'Windows'
         run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DSERIALIZATION_ENABLE_CACHE=ON
-          -DSERIALIZATION_CACHE_TYPE=${{ matrix.backend }}
-          -DSERIALIZATION_ENABLE_ICECC=${{ matrix.icecc }}
+          python3 "${{ github.workspace }}/Scripts/setup.py" config --compiler=default --source-dir . --build-dir build --generator Ninja
+          --build-type=Release
+          --cache=ON
+          --cache-backend=${{ matrix.backend }}
+          --icecc=${{ matrix.icecc }}
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
         run: >
-          cmake -S . -B build
-          -DSERIALIZATION_ENABLE_CACHE=ON
-          -DSERIALIZATION_CACHE_TYPE=${{ matrix.backend }}
-          -DSERIALIZATION_ENABLE_ICECC=${{ matrix.icecc }}
+          python3 "${{ github.workspace }}/Scripts/setup.py" config --compiler=default --generator=default --source-dir . --build-dir build
+          --cache=ON
+          --cache-backend=${{ matrix.backend }}
+          --icecc=${{ matrix.icecc }}
 
       - name: Build (Linux/macOS)
         if: runner.os != 'Windows'
-        run: cmake --build build --parallel
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" build --build-dir build --parallel=4
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
-        run: cmake --build build --config Release --parallel
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" build --build-dir build --build-type Release --parallel=4
 
       - name: Test (Linux/macOS)
         if: runner.os != 'Windows'
-        run: ctest --test-dir build --output-on-failure --timeout 120
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" test --build-dir . --build-dir build --test-timeout 120
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
         run: >
-          ctest --test-dir build --build-config Release
-          --output-on-failure --timeout 120
+          python3 "${{ github.workspace }}/Scripts/setup.py" test --build-dir . --build-dir build --build-type Release --test-timeout 120

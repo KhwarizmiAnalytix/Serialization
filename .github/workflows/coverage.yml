@@ -42,16 +42,16 @@ jobs:
           CC: gcc
           CXX: g++
         run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug
-          -DSERIALIZATION_ENABLE_COVERAGE=ON
+          python3 "${{ github.workspace }}/Scripts/setup.py" config --compiler=default --source-dir . --build-dir build --generator Ninja
+          --build-type=Debug
+          --coverage=ON
 
       - name: Build
-        run: cmake --build build --parallel
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" build --build-dir build --parallel=4
 
       - name: Test
         working-directory: build
-        run: ctest --output-on-failure --timeout 300
+        run: python3 "${{ github.workspace }}/Scripts/setup.py" test --build-dir . --test-timeout 300
 
       - name: Generate coverage report
         run: coverage-tool --build=build --min-coverage=${{ env.COVERAGE_THRESHOLD }}

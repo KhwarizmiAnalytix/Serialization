@@ -32,7 +32,7 @@ def run_ctest(
         Exit code (0 for success, non-zero for failure)
     """
     try:
-        ctest_cmd = ["ctest"]
+        ctest_cmd = ["ctest", "--output-on-failure", "--no-tests=error"]
 
         if system == "Windows" and builder != "ninja":
             ctest_cmd.extend(["-C", build_enum])
@@ -41,7 +41,7 @@ def run_ctest(
         if verbosity:
             ctest_cmd.append(verbosity)
 
-        return subprocess.check_call(ctest_cmd, stderr=subprocess.STDOUT, shell=shell_flag)
+        return subprocess.check_call(ctest_cmd, stderr=subprocess.STDOUT, shell=False)
 
     except subprocess.CalledProcessError:
         return 1

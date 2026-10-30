@@ -27,6 +27,18 @@ def main():
         ],
         check=True,
     )
+    # buildcache's src/base/env_utils.hpp uses int64_t without including
+    # <cstdint>, relying on a transitive include that newer standard library
+    # headers (e.g. recent libstdc++/libc++) no longer provide. Unfixed as of
+    # the latest upstream tag (v0.33.2), so patch it in rather than bump the
+    # pin: https://gitlab.com/bits-n-bites/buildcache/-/blob/v0.33.1/src/base/env_utils.hpp
+    env_utils_hpp = source / "src" / "base" / "env_utils.hpp"
+    contents = env_utils_hpp.read_text(encoding="utf-8")
+    if "#include <cstdint>" not in contents:
+        env_utils_hpp.write_text(
+            contents.replace("#include <string>", "#include <cstdint>\n#include <string>", 1),
+            encoding="utf-8",
+        )
     subprocess.run(
         [
             "cmake",

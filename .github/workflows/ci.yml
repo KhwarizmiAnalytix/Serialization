@@ -80,7 +80,7 @@ jobs:
       - name: Expose clang-tidy (macOS)
         run: |
           brew list llvm &>/dev/null || brew install llvm
-          echo "$(brew --install-prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         run: >
@@ -158,7 +158,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew list llvm &>/dev/null || brew install llvm
-          echo "$(brew --install-prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         run: >
@@ -239,6 +239,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install codespell
+        run: pip install codespell
+
       - name: Install Ninja, ccache, icecc (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ninja-build ccache icecc
@@ -246,6 +249,12 @@ jobs:
       - name: Install Ninja, ccache, icecream (macOS)
         if: runner.os == 'macOS'
         run: brew install ninja ccache icecream
+
+      - name: Expose clang-tidy (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew list llvm &>/dev/null || brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Install ccache (Windows)
         if: runner.os == 'Windows'
@@ -263,7 +272,7 @@ jobs:
       - name: Install BuildCache
         if: matrix.backend == 'buildcache'
         shell: bash
-        run: python3 .github/scripts/install_buildcache.py --install-prefix "$RUNNER_TEMP/buildcache-tool"
+        run: python3 .github/scripts/install_buildcache.py --prefix "$RUNNER_TEMP/buildcache-tool"
 
       - name: Configure (Linux/macOS)
         if: runner.os != 'Windows'

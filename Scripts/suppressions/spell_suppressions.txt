@@ -1,1 +1,3 @@
 # Spell check suppressions for Serialization
+# fo: MSVC compiler flag /Fo (object file output), not a misspelling
+fo

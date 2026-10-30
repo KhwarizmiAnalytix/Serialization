@@ -40,6 +40,10 @@ def main():
             # CI uses local storage; avoid runner-specific OpenSSL DLLs.
             "-DDISABLE_SSL=ON",
             f"-DCMAKE_INSTALL_PREFIX={prefix}",
+            # buildcache vendors third_party/mingw-std-threads, whose
+            # cmake_minimum_required predates 3.5; modern CMake refuses to
+            # configure without an explicit minimum policy version.
+            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         ],
         check=True,
     )

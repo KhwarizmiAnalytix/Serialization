@@ -5,6 +5,5 @@
 package(default_visibility = ["//visibility:public"])
 
 exports_files([
-    "xsigma.bzl",
     "serialization.bzl",
 ])
